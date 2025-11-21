@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone - Version Complète</title>
+    <title>Calculateur Carbone - Intelligent</title>
     
     <!-- 1. STYLE : Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. DEPENDANCES : CLOUDFLARE (Stable) -->
+    <!-- 2. DEPENDANCES : CLOUDFLARE -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
@@ -25,7 +25,7 @@
 <body class="bg-slate-50 text-gray-800">
 
     <div id="root" class="flex flex-col items-center justify-center min-h-screen">
-        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement...</div>
+        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement de l'application...</div>
     </div>
 
     <script type="text/babel">
@@ -42,6 +42,7 @@
         const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
         const IconInfo = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>;
         const IconChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 ml-2"><path d="m6 9 6 6 6-6"/></svg>;
+        const IconStar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-yellow-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
 
         // --- CONSTANTES ---
         const EMISSION_FACTORS = {
@@ -65,7 +66,8 @@
             const [results, setResults] = useState(null);
             const [history, setHistory] = useState([]);
             const [transportView, setTransportView] = useState('semaine');
-            const [showSources, setShowSources] = useState(false); // Pour afficher/masquer le tableau
+            const [showSources, setShowSources] = useState(false);
+            const [bestAction, setBestAction] = useState(null);
 
             useEffect(() => {
                 try {
@@ -76,11 +78,81 @@
 
             const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
             
+            // --- 1. FONCTION DE CHANGEMENT DE VUE TRANSPORT INTELLIGENTE ---
+            const switchTransportView = (newView) => {
+                if (newView === transportView) return;
+
+                // Facteurs de conversion vers l'Année
+                const toAnnual = { semaine: 52, mois: 12, an: 1 };
+                // Facteurs de conversion depuis l'Année vers la nouvelle vue
+                const fromAnnual = { semaine: 1/52, mois: 1/12, an: 1 };
+
+                // Ratio direct
+                const ratio = toAnnual[transportView] * fromAnnual[newView];
+
+                // Mise à jour des valeurs
+                setFormData(prev => ({
+                    ...prev,
+                    voiture: Math.round(prev.voiture * ratio),
+                    bus: Math.round(prev.bus * ratio),
+                    train: Math.round(prev.train * ratio),
+                    avion: Math.round(prev.avion * ratio)
+                }));
+
+                setTransportView(newView);
+            };
+
             const convertTransportToAnnual = (val) => {
                 const v = parseFloat(val) || 0;
                 if (transportView === 'semaine') return v * 52;
                 if (transportView === 'mois') return v * 12;
                 return v;
+            };
+
+            const calculateBestAction = (data, totals) => {
+                const actions = [];
+                
+                // 1. Action Viande : Si on remplace 50% de la viande par du végétarien
+                const meatMeals = parseFloat(data.repasOmnivore) || 0;
+                if (meatMeals > 3) {
+                    const mealsToSwitch = Math.floor(meatMeals / 2); // 50%
+                    const currentImpact = mealsToSwitch * EMISSION_FACTORS.alimentation.omnivore.factor * 365;
+                    const newImpact = mealsToSwitch * EMISSION_FACTORS.alimentation.vegetarien.factor * 365;
+                    actions.push({
+                        title: "Adopter un régime flexitarien",
+                        desc: `Remplacer ${mealsToSwitch} repas avec viande par du végétarien chaque semaine.`,
+                        save: currentImpact - newImpact,
+                        icon: <IconLeaf />
+                    });
+                }
+
+                // 2. Action Avion : Réduire de moitié
+                const avionKm = convertTransportToAnnual(data.avion);
+                if (avionKm > 1000) {
+                    const savedKm = avionKm / 2;
+                    actions.push({
+                        title: "Réduire l'avion",
+                        desc: "Réduire vos vols de moitié ou privilégier le train pour l'Europe.",
+                        save: savedKm * EMISSION_FACTORS.transport.avion.factor,
+                        icon: <IconCar />
+                    });
+                }
+
+                // 3. Action Chauffage : -10% (Isolation ou baisse thermostat)
+                const heatingTotal = totals.logement; // Approximatif
+                if (heatingTotal > 500) {
+                    actions.push({
+                        title: "Isolation & Chauffage",
+                        desc: "Baisser le chauffage de 1°C ou améliorer l'isolation (-10%).",
+                        save: heatingTotal * 0.10,
+                        icon: <IconHome />
+                    });
+                }
+
+                // Trier par impact (le plus grand gain en premier)
+                actions.sort((a, b) => b.save - a.save);
+
+                return actions.length > 0 ? actions[0] : null;
             };
 
             const calculate = () => {
@@ -110,6 +182,10 @@
                 const totalNum = vDonnees + vStream;
 
                 const grandTotal = totalAlim + totalTrans + totalLog + totalNum;
+
+                // --- 2. CALCUL DE LA MEILLEURE ACTION ---
+                const best = calculateBestAction(formData, {logement: totalLog});
+                setBestAction(best);
 
                 const res = {
                     alimentation: Math.round(totalAlim),
@@ -145,6 +221,7 @@
                 setFormData(VALEURS_MOYENNES);
                 setTransportView('semaine');
                 setResults(null);
+                setBestAction(null);
             };
 
             const pieData = results ? [
@@ -179,17 +256,23 @@
                             </div>
                         </div>
 
-                        {/* TRANSPORT AVEC ONGLETS */}
+                        {/* TRANSPORT INTELLIGENT */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                                 <h2 className="text-lg font-bold flex items-center"><IconCar /> <span className="ml-2">Transport</span></h2>
                                 <div className="bg-gray-100 p-1 rounded-lg flex text-xs font-semibold">
                                     {['semaine', 'mois', 'an'].map((view) => (
-                                        <button key={view} onClick={() => setTransportView(view)} className={`px-3 py-1.5 rounded-md capitalize tab-transition ${transportView === view ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{view}</button>
+                                        <button 
+                                            key={view} 
+                                            onClick={() => switchTransportView(view)} 
+                                            className={`px-3 py-1.5 rounded-md capitalize tab-transition ${transportView === view ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            {view}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
-                            <p className="text-xs text-gray-500 uppercase font-bold mb-3">Distance par <span className="text-blue-600">{transportView}</span></p>
+                            <p className="text-xs text-gray-500 uppercase font-bold mb-3">Distance par <span className="text-blue-600">{transportView}</span> (convertie auto.)</p>
                             <div className="space-y-3">
                                 {['voiture', 'bus', 'train', 'avion'].map(m => (
                                     <div key={m} className="flex justify-between items-center">
@@ -239,6 +322,28 @@
                                 <div className="text-xl text-gray-500">tonnes de CO₂e</div>
                                 <div className="mt-4 inline-block bg-gray-100 px-4 py-2 rounded-full text-sm">Moyenne Française : <strong>{MOYENNE_FRANCAISE.total/1000} tonnes</strong></div>
                             </div>
+
+                            {/* --- NOUVEAU : CARTE DE L'ACTION À FORT IMPACT --- */}
+                            {bestAction && (
+                                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-[1.01] transition-all">
+                                    <div className="flex flex-col md:flex-row items-center justify-between">
+                                        <div className="flex items-center mb-4 md:mb-0">
+                                            <div className="p-3 bg-white/20 rounded-full mr-4">
+                                                <IconStar />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold mb-1">L'action qui changerait tout pour vous</h3>
+                                                <p className="text-blue-100 max-w-xl">{bestAction.desc}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-center bg-white/10 p-4 rounded-lg backdrop-blur-sm min-w-[150px]">
+                                            <div className="text-sm text-blue-100 uppercase font-semibold">Gain estimé</div>
+                                            <div className="text-3xl font-bold text-white">-{Math.round(bestAction.save)} <span className="text-lg">kg</span></div>
+                                            <div className="text-xs text-blue-200">de CO₂e / an</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="bg-white p-4 rounded-xl shadow-lg h-80">
@@ -299,7 +404,6 @@
                         </div>
                     )}
 
-                    {/* SECTION METHODOLOGIE / SOURCES */}
                     <div className="mt-12 text-center max-w-4xl mx-auto">
                         <button 
                             onClick={() => setShowSources(!showSources)}
@@ -330,24 +434,20 @@
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
-                                            {/* ALIMENTATION */}
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3 font-medium text-green-600">Alimentation</td><td>Repas omnivore</td><td>3.0</td></tr>
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Repas végétarien</td><td>1.7</td></tr>
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Repas végan</td><td>1.5</td></tr>
                                             
-                                            {/* TRANSPORT */}
                                             <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3 font-medium text-blue-600">Transport</td><td>Voiture (par km)</td><td>0.192</td></tr>
                                             <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Bus (par km)</td><td>0.105</td></tr>
                                             <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Train (par km)</td><td>0.041</td></tr>
                                             <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Avion (par km)</td><td>0.255</td></tr>
 
-                                            {/* LOGEMENT */}
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3 font-medium text-orange-600">Logement</td><td>Électricité (par kWh)</td><td>0.053</td></tr>
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Gaz (par kWh)</td><td>0.206</td></tr>
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Fioul (par kWh)</td><td>0.267</td></tr>
                                             <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Bois (par kWh)</td><td>0.025</td></tr>
 
-                                            {/* NUMERIQUE */}
                                             <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3 font-medium text-purple-600">Numérique</td><td>Données (par Go)</td><td>0.06</td></tr>
                                             <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Streaming (par heure)</td><td>0.05</td></tr>
                                         </tbody>
