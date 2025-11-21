@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone - Précision Expert</title>
+    <title>Calculateur Carbone - Eric Sotoca</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥗</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -35,7 +35,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
         const RechartsLib = window.Recharts || null;
-        const { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = RechartsLib || {};
+        const { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } = RechartsLib || {};
 
         /* --- ICONS --- */
         const IconLeaf = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.77 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>;
@@ -93,9 +93,6 @@
             const [results, setResults] = useState(null);
             const [detailRows, setDetailRows] = useState([]);
             const [adviceData, setAdviceData] = useState(null);
-            const [history, setHistory] = useState(() => {
-                try { return JSON.parse(localStorage.getItem('carbonHistory')) || []; } catch { return []; }
-            });
             const [transportView, setTransportView] = useState('an');
             const [showCoefs, setShowCoefs] = useState(false);
 
@@ -129,12 +126,12 @@
                             cat, label, 
                             formula: `${val} ${unit} × ${freqMult} × ${factorData.val}`, 
                             subTotal: Math.round(subTotal),
-                            rawVal: val // utile pour l'analyse des conseils
+                            rawVal: val 
                         });
                     }
                 };
 
-                // --- CALCUL ALIMENTATION DISTINCT ---
+                // CALCULS
                 addRow('alimentation', 'Viande Rouge (Bœuf/Agneau)', formData.repasRouge, 52, EMISSION_FACTORS.alimentation.rouge, 'repas');
                 addRow('alimentation', 'Viande Blanche (Poulet/Porc)', formData.repasBlanc, 52, EMISSION_FACTORS.alimentation.blanche, 'repas');
                 addRow('alimentation', 'Végétarien', formData.repasVegetarien, 52, EMISSION_FACTORS.alimentation.vegetarien, 'repas');
@@ -159,7 +156,7 @@
                 // TRI
                 breakdown.sort((a, b) => b.subTotal - a.subTotal);
 
-                // --- GENERATION CONSEILS INTELLIGENTS ---
+                // CONSEILS
                 const score = Math.round(total);
                 let encouragement = "";
                 let tip = "";
@@ -170,14 +167,11 @@
 
                 if (breakdown.length > 0) {
                     const topItem = breakdown[0];
-                    
-                    // Logique spécifique alimentation
                     if (topItem.label.includes('Viande Rouge')) {
                         tip = "La viande rouge est votre poste N°1. La remplacer par de la volaille divise son impact par 3, et par du végétal par 5.";
                     } else if (topItem.label.includes('Viande Blanche')) {
-                        // Cas spécifique : mange déjà que du poulet
                         if ((parseFloat(formData.repasRouge)||0) === 0) {
-                            tip = "Bravo, vous évitez déjà la viande rouge ! Pour réduire encore ce poste, essayez d'introduire plus de repas végétariens (légumineuses, œufs).";
+                            tip = "Bravo, vous évitez déjà la viande rouge ! Pour réduire encore ce poste, essayez d'introduire plus de repas végétariens.";
                         } else {
                             tip = "La viande blanche est votre poste principal. Essayez d'alterner avec des repas sans viande.";
                         }
@@ -196,8 +190,6 @@
                 const res = { ...catTotals, total: score, tonnes: (total / 1000).toFixed(2), date: new Date().toISOString() };
                 setResults(res);
                 setDetailRows(breakdown);
-                setHistory([...history, res].slice(-10));
-                localStorage.setItem('carbonHistory', JSON.stringify([...history, res].slice(-10)));
                 setTimeout(() => { document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' }); }, 100);
             };
 
@@ -218,31 +210,16 @@
                     </header>
 
                     <div className="grid md:grid-cols-2 gap-6 mb-8">
-                        {/* ALIMENTATION ETENDUE */}
+                        {/* ALIMENTATION */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-green-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconLeaf /><span className="ml-2">Alimentation</span></h2>
                             <p className="text-xs text-slate-500 mb-4">Repas par semaine (Total : <span className="font-bold text-green-600">{repasTotal}</span>)</p>
                             <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm text-red-700 font-medium">Viande Rouge (Bœuf/Agneau)</label>
-                                    <input type="number" min="0" name="repasRouge" value={formData.repasRouge} onChange={handleChange} className="w-20 p-2 bg-red-50 border border-red-200 rounded-lg text-center" />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm text-yellow-700 font-medium">Viande Blanche (Poulet/Porc)</label>
-                                    <input type="number" min="0" name="repasBlanc" value={formData.repasBlanc} onChange={handleChange} className="w-20 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-center" />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm text-green-700">Végétarien (Oeuf/Fromage)</label>
-                                    <input type="number" min="0" name="repasVegetarien" value={formData.repasVegetarien} onChange={handleChange} className="w-20 p-2 bg-green-50 border border-green-200 rounded-lg text-center" />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm text-green-600">Végétalien (100% Végétal)</label>
-                                    <input type="number" min="0" name="repasVegan" value={formData.repasVegan} onChange={handleChange} className="w-20 p-2 bg-green-50 border border-green-200 rounded-lg text-center" />
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <label className="text-sm text-slate-400">Jeûne / Sauté</label>
-                                    <input type="number" min="0" name="repasJeune" value={formData.repasJeune} onChange={handleChange} className="w-20 p-2 bg-slate-50 border rounded-lg text-center" />
-                                </div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-red-700 font-medium">Viande Rouge (Bœuf/Agneau)</label><input type="number" min="0" name="repasRouge" value={formData.repasRouge} onChange={handleChange} className="w-20 p-2 bg-red-50 border border-red-200 rounded-lg text-center" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-yellow-700 font-medium">Viande Blanche (Poulet/Porc)</label><input type="number" min="0" name="repasBlanc" value={formData.repasBlanc} onChange={handleChange} className="w-20 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-center" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-green-700">Végétarien (Oeuf/Fromage)</label><input type="number" min="0" name="repasVegetarien" value={formData.repasVegetarien} onChange={handleChange} className="w-20 p-2 bg-green-50 border border-green-200 rounded-lg text-center" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-green-600">Végétalien (100% Végétal)</label><input type="number" min="0" name="repasVegan" value={formData.repasVegan} onChange={handleChange} className="w-20 p-2 bg-green-50 border border-green-200 rounded-lg text-center" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-slate-400">Jeûne / Sauté</label><input type="number" min="0" name="repasJeune" value={formData.repasJeune} onChange={handleChange} className="w-20 p-2 bg-slate-50 border rounded-lg text-center" /></div>
                             </div>
                         </div>
 
@@ -252,19 +229,15 @@
                             <div className="bg-slate-100 p-1 rounded flex text-xs">{['semaine', 'mois', 'an'].map(v => <button key={v} onClick={() => switchTransportView(v)} className={`px-2 py-1 rounded capitalize ${transportView === v ? 'bg-white shadow text-blue-600 font-bold' : 'text-slate-500'}`}>{v}</button>)}</div></div>
                             <p className="text-xs text-slate-500 mb-2 mt-1 font-bold">Terrestre (vue : {transportView})</p>
                             <div className="space-y-2 mb-4">
-                                {['voiture', 'bus', 'train'].map(m => (
-                                    <div key={m} className="flex justify-between items-center"><label className="capitalize text-sm text-slate-600 w-24">{m}</label><input type="number" min="0" name={m} value={formData[m]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" /></div>
-                                ))}
+                                {['voiture', 'bus', 'train'].map(m => <div key={m} className="flex justify-between items-center"><label className="capitalize text-sm text-slate-600 w-24">{m}</label><input type="number" min="0" name={m} value={formData[m]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" /></div>)}
                             </div>
                             <p className="text-xs text-slate-500 mb-2 font-bold border-t pt-2">Aérien (km/an fixe)</p>
                             <div className="space-y-2">
-                                {[{k:'avionCourt', l:'Court (<1k)'}, {k:'avionMoyen', l:'Moyen (1-3k)'}, {k:'avionLong', l:'Long (>3.5k)'}].map(av => (
-                                    <div key={av.k} className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">{av.l}</label><input type="number" min="0" name={av.k} value={formData[av.k]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="km" /></div>
-                                ))}
+                                {[{k:'avionCourt', l:'Court (<1k)'}, {k:'avionMoyen', l:'Moyen (1-3k)'}, {k:'avionLong', l:'Long (>3.5k)'}].map(av => <div key={av.k} className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">{av.l}</label><input type="number" min="0" name={av.k} value={formData[av.k]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="km" /></div>)}
                             </div>
                         </div>
 
-                        {/* LOGEMENT */}
+                        {/* LOGEMENT & NUMERIQUE */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-orange-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconHome /><span className="ml-2">Logement</span></h2>
                             <p className="text-xs text-slate-500 mb-4">Conso. mensuelle (kWh)</p>
@@ -273,7 +246,6 @@
                             </div>
                         </div>
 
-                        {/* NUMERIQUE */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-purple-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconWifi /><span className="ml-2">Numérique</span></h2>
                             <div className="space-y-4">
@@ -290,7 +262,8 @@
 
                     {results && (
                         <div id="results-section" className="fade-in space-y-8 pb-12">
-                            {/* SCORE */}
+                            
+                            {/* SCORE TOTAL */}
                             <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100 text-center relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 via-blue-500 to-purple-500"></div>
                                 <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600">{results.tonnes}</div>
@@ -298,19 +271,21 @@
                                 <div className="inline-block bg-slate-100 px-4 py-2 rounded-full text-sm">Moyenne FR : <strong>{(MOY_FR/1000).toFixed(1)} t</strong></div>
                             </div>
 
-                            {/* GRAPHIQUES */}
+                            {/* GRAPHIQUE CORRIGÉ (CENTRÉ ET AVEC MARGES) */}
                             {RechartsLib && (
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div className="bg-white p-6 rounded-2xl shadow-sm border h-80">
+                                <div className="flex justify-center mb-6">
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border w-full max-w-lg h-96">
                                         <h3 className="text-center font-bold text-slate-700 mb-2">Répartition</h3>
-                                        <ResponsiveContainer><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" paddingAngle={5}>{pieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip formatter={v => `${Math.round(v)} kg`} /><Legend /></PieChart></ResponsiveContainer>
+                                        <ResponsiveContainer>
+                                            <PieChart margin={{ top: 0, right: 0, bottom: 20, left: 0 }}>
+                                                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" paddingAngle={5}>
+                                                    {pieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                                </Pie>
+                                                <Tooltip formatter={v => `${Math.round(v)} kg`} />
+                                                <Legend verticalAlign="bottom" height={36} wrapperStyle={{paddingTop: "20px"}}/>
+                                            </PieChart>
+                                        </ResponsiveContainer>
                                     </div>
-                                    {history.length > 0 && (
-                                        <div className="bg-white p-6 rounded-2xl shadow-sm border h-80">
-                                            <h3 className="text-center font-bold text-slate-700 mb-2">Historique</h3>
-                                            <ResponsiveContainer><LineChart data={history}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tickFormatter={d => new Date(d).getDate() + '/' + (new Date(d).getMonth()+1)} /><YAxis /><Tooltip labelFormatter={l => new Date(l).toLocaleString()} /><Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={3} dot={{r:4}} /></LineChart></ResponsiveContainer>
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -339,7 +314,7 @@
                                 </div>
                             </div>
 
-                            {/* CONSEIL PERSO */}
+                            {/* CONSEIL */}
                             {adviceData && (
                                 <div className="bg-blue-50 border border-blue-100 p-8 rounded-3xl text-center shadow-inner">
                                     <IconBulb />
@@ -354,7 +329,7 @@
                     )}
                     
                     {/* FOOTER */}
-                    <div className="mt-16 border-t border-slate-200 pt-8 text-center">
+                    <div className="mt-16 border-t border-slate-200 pt-8 text-center pb-8">
                         <button onClick={() => setShowCoefs(!showCoefs)} className="text-slate-500 hover:text-slate-800 text-sm font-semibold transition mb-4">
                             {showCoefs ? 'Masquer' : 'Voir'} les coefficients
                             <span className={`ml-2 inline-block transform transition ${showCoefs ? 'rotate-180' : ''}`}>▼</span>
@@ -367,8 +342,9 @@
                                 </table>
                             </div>
                         )}
-                        <div className="text-xs text-slate-400 mt-4">
-                            Source : <a href="https://base-empreinte.ademe.fr/donnees/jeu-donnees" target="_blank" rel="noopener noreferrer" className="underline hover:text-green-600 font-bold transition-colors">Base Empreinte ADEME</a>.
+                        <div className="text-xs text-slate-400 mt-4 space-y-2">
+                            <p>Source : <a href="https://base-empreinte.ademe.fr/donnees/jeu-donnees" target="_blank" rel="noopener noreferrer" className="underline hover:text-green-600 font-bold transition-colors">Base Empreinte ADEME</a>.</p>
+                            <p className="font-semibold text-slate-500">Réalisé en Novembre 2025 par Eric Sotoca - Version 1</p>
                         </div>
                     </div>
                 </div>
