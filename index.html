@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculateur Carbone Amélioré</title>
+    
+    <!-- 1. Chargement de Tailwind CSS pour le style -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 2. Configuration des imports (Import Map) -->
+    <!-- Cela permet d'utiliser "import ... from 'react'" comme dans un projet pro -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
+            "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react,react-dom"
+        }
+    }
+    </script>
+
+    <!-- 3. Chargement de Babel pour comprendre le JSX (le code React) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <!-- 4. Votre Code React -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect } from 'react';
+        import ReactDOM from 'react-dom/client';
+        import { 
+            PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, 
+            XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+        } from 'recharts';
+        import { Leaf, Car, Home, Wifi, TrendingDown, Info, RotateCcw } from 'lucide-react';
+
+        // --- CONSTANTES ---
+        const EMISSION_FACTORS = {
+            alimentation: {
+                omnivore: { factor: 3, label: 'Repas omnivore' },
+                vegetarien: { factor: 1.7, label: 'Repas végétarien' },
+                vegan: { factor: 1.5, label: 'Repas végan' }
+            },
+            transport: {
+                voiture: { factor: 0.192, label: 'Voiture', unit: 'km' },
+                bus: { factor: 0.105, label: 'Bus', unit: 'km' },
+                train: { factor: 0.041, label: 'Train', unit: 'km' },
+                avion: { factor: 0.255, label: 'Avion', unit: 'km' }
+            },
+            logement: {
+                electricite: { factor: 0.053, label: 'Électricité', unit: 'kWh' },
+                gaz: { factor: 0.206, label: 'Gaz', unit: 'kWh' },
+                fioul: { factor: 0.267, label: 'Fioul', unit: 'kWh' },
+                bois: { factor: 0.025, label: 'Bois', unit: 'kWh' }
+            },
+            numerique: {
+                donnees: { factor: 0.06, label: 'Données', unit: 'GB' },
+                streaming: { factor: 0.05, label: 'Streaming', unit: 'heures' }
+            }
+        };
+
+        const MOYENNE_FRANCAISE = {
+            alimentation: 2300,
+            transport: 2100,
+            logement: 2200,
+            numerique: 150,
+            total: 9400
+        };
+
+        const VALEURS_MOYENNES = {
+            repasOmnivore: '14',
+            repasVegetarien: '5',
+            repasVegan: '2',
+            voiture: '100',
+            bus: '20',
+            train: '10',
+            avion: '2000',
+            electricite: '200',
+            gaz: '100',
+            fioul: '0',
+            bois: '0',
+            donnees: '50',
+            streaming: '2'
+        };
+
+        const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
+
+        // --- COMPOSANT PRINCIPAL ---
+        function CarbonCalculator() {
+            const [formData, setFormData] = useState(VALEURS_MOYENNES);
+            const [results, setResults] = useState(null);
+            const [showInfo, setShowInfo] = useState(false);
+            const [history, setHistory] = useState([]);
+            const [transportPeriod, setTransportPeriod] = useState({
+                voiture: 'semaine',
+                bus: 'semaine',
+                train: 'semaine',
+                avion: 'an'
+            });
+
+            useEffect(() => {
+                const savedHistory = localStorage.getItem('carbonHistory');
+                if (savedHistory) {
+                    setHistory(JSON.parse(savedHistory));
+                }
+            }, []);
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value
+                }));
+            };
+
+            const resetToDefaults = () => {
+                setFormData(VALEURS_MOYENNES);
+                setResults(null);
+            };
+
+            const handlePeriodChange = (transport, period) => {
+                setTransportPeriod(prev => ({
+                    ...prev,
+                    [transport]: period
+                }));
+            };
+
+            const convertToAnnual = (value, transport) => {
+                const period = transportPeriod[transport];
+                const val = parseFloat(value) || 0;
+                switch(period) {
+                    case 'semaine': return val * 52;
+                    case 'mois': return val * 12;
+                    case 'an': return val;
+                    default: return val;
+                }
+            };
+
+            const calculateEmissions = () => {
+                // Validation simple (Amélioration #2 suggérée)
+                const totalRepas = (parseFloat(formData.repasOmnivore) || 0) + 
+                                   (parseFloat(formData.repasVegetarien) || 0) + 
+                                   (parseFloat(formData.repasVegan) || 0);
+                
+                if (totalRepas > 30) {
+                    alert("Attention : Le nombre total de repas par semaine semble très élevé (>30).");
+                }
+
+                const alimentation = 
+                    (parseFloat(formData.repasOmnivore) || 0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365 +
+                    (parseFloat(formData.repasVegetarien) || 0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365 +
+                    (parseFloat(formData.repasVegan) || 0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
+
+                const transport = 
+                    convertToAnnual(formData.voiture, 'voiture') * EMISSION_FACTORS.transport.voiture.factor +
+                    convertToAnnual(formData.bus, 'bus') * EMISSION_FACTORS.transport.bus.factor +
+                    convertToAnnual(formData.train, 'train') * EMISSION_FACTORS.transport.train.factor +
+                    convertToAnnual(formData.avion, 'avion') * EMISSION_FACTORS.transport.avion.factor;
+
+                const logement = 
+                    (parseFloat(formData.electricite) || 0) * EMISSION_FACTORS.logement.electricite.factor * 12 +
+                    (parseFloat(formData.gaz) || 0) * EMISSION_FACTORS.logement.gaz.factor * 12 +
+                    (parseFloat(formData.fioul) || 0) * EMISSION_FACTORS.logement.fioul.factor * 12 +
+                    (parseFloat(formData.bois) || 0) * EMISSION_FACTORS.logement.bois.factor * 12;
+
+                const numerique = 
+                    (parseFloat(formData.donnees) || 0) * EMISSION_FACTORS.numerique.donnees.factor * 12 +
+                    (parseFloat(formData.streaming) || 0) * EMISSION_FACTORS.numerique.streaming.factor * 365;
+
+                const total = alimentation + transport + logement + numerique;
+
+                const newResult = {
+                    alimentation: Math.round(alimentation),
+                    transport: Math.round(transport),
+                    logement: Math.round(logement),
+                    numerique: Math.round(numerique),
+                    total: Math.round(total),
+                    tonnes: (total / 1000).toFixed(2),
+                    date: new Date().toISOString()
+                };
+
+                setResults(newResult);
+
+                const newHistory = [...history, newResult].slice(-10); // Garder les 10 derniers
+                setHistory(newHistory);
+                localStorage.setItem('carbonHistory', JSON.stringify(newHistory));
+            };
+
+            const getRecommendations = () => {
+                if (!results) return [];
+                const recommendations = [];
+                if (results.alimentation > MOYENNE_FRANCAISE.alimentation) {
+                    recommendations.push({
+                        category: 'Alimentation',
+                        icon: <Leaf className="w-5 h-5" />,
+                        text: 'Réduisez votre consommation de viande. Un repas végétarien par jour peut économiser environ 500 kg de CO₂e par an.',
+                        impact: 'Fort'
+                    });
+                }
+                if (results.transport > MOYENNE_FRANCAISE.transport) {
+                    recommendations.push({
+                        category: 'Transport',
+                        icon: <Car className="w-5 h-5" />,
+                        text: 'Privilégiez les transports en commun ou le covoiturage.',
+                        impact: 'Fort'
+                    });
+                }
+                if (results.logement > MOYENNE_FRANCAISE.logement) {
+                    recommendations.push({
+                        category: 'Logement',
+                        icon: <Home className="w-5 h-5" />,
+                        text: 'Baissez le chauffage de 1°C pour économiser 7% d\'énergie.',
+                        impact: 'Moyen'
+                    });
+                }
+                return recommendations;
+            };
+
+            const pieData = results ? [
+                { name: 'Alimentation', value: results.alimentation },
+                { name: 'Transport', value: results.transport },
+                { name: 'Logement', value: results.logement },
+                { name: 'Numérique', value: results.numerique }
+            ] : [];
+
+            const comparisonData = results ? [
+                { category: 'Alimentation', vous: results.alimentation, moyenne: MOYENNE_FRANCAISE.alimentation },
+                { category: 'Transport', vous: results.transport, moyenne: MOYENNE_FRANCAISE.transport },
+                { category: 'Logement', vous: results.logement, moyenne: MOYENNE_FRANCAISE.logement },
+                { category: 'Numérique', vous: results.numerique, moyenne: MOYENNE_FRANCAISE.numerique }
+            ] : [];
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
+                    <div className="max-w-6xl mx-auto">
+                        <header className="text-center mb-8 pt-8">
+                            <div className="flex items-center justify-center mb-4">
+                                <Leaf className="w-12 h-12 text-green-600 mr-3" />
+                                <h1 className="text-4xl font-bold text-gray-800">Calculateur d'Empreinte Carbone</h1>
+                            </div>
+                            <p className="text-gray-600 max-w-2xl mx-auto">
+                                Estimez votre impact annuel et suivez votre évolution.
+                            </p>
+                        </header>
+
+                        <div className="grid md:grid-cols-2 gap-6 mb-8">
+                            {/* ALIMENTATION */}
+                            <div className="bg-white rounded-xl shadow-lg p-6">
+                                <div className="flex items-center mb-4">
+                                    <Leaf className="w-6 h-6 text-green-600 mr-2" />
+                                    <h2 className="text-xl font-bold text-gray-800">Alimentation</h2>
+                                </div>
+                                <p className="text-xs text-gray-500 mb-2 uppercase font-semibold">Repas par semaine</p>
+                                <div className="grid grid-cols-1 gap-3">
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Omnivore (viande/poisson)</span>
+                                        <input type="number" name="repasOmnivore" value={formData.repasOmnivore} onChange={handleChange} className="mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500" />
+                                    </label>
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Végétarien</span>
+                                        <input type="number" name="repasVegetarien" value={formData.repasVegetarien} onChange={handleChange} className="mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500" />
+                                    </label>
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Végan</span>
+                                        <input type="number" name="repasVegan" value={formData.repasVegan} onChange={handleChange} className="mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500" />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* TRANSPORT */}
+                            <div className="bg-white rounded-xl shadow-lg p-6">
+                                <div className="flex items-center mb-4">
+                                    <Car className="w-6 h-6 text-blue-600 mr-2" />
+                                    <h2 className="text-xl font-bold text-gray-800">Transport</h2>
+                                </div>
+                                <div className="space-y-4">
+                                    {['voiture', 'bus', 'train', 'avion'].map(mode => (
+                                        <div key={mode} className="flex flex-col">
+                                            <label className="text-sm font-medium text-gray-700 capitalize mb-1">{mode}</label>
+                                            <div className="flex gap-2">
+                                                <input type="number" name={mode} value={formData[mode]} onChange={handleChange} className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Km" />
+                                                <select value={transportPeriod[mode]} onChange={(e) => handlePeriodChange(mode, e.target.value)} className="bg-gray-50 border rounded-lg px-2 py-2 text-sm">
+                                                    <option value="semaine">/sem</option>
+                                                    <option value="mois">/mois</option>
+                                                    <option value="an">/an</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* LOGEMENT */}
+                            <div className="bg-white rounded-xl shadow-lg p-6">
+                                <div className="flex items-center mb-4">
+                                    <Home className="w-6 h-6 text-orange-600 mr-2" />
+                                    <h2 className="text-xl font-bold text-gray-800">Logement (kWh/mois)</h2>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Électricité</span>
+                                        <input type="number" name="electricite" value={formData.electricite} onChange={handleChange} className="mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500" />
+                                    </label>
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Gaz</span>
+                                        <input type="number" name="gaz" value={formData.gaz} onChange={handleChange} className="mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500" />
+                                    </label>
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Fioul</span>
+                                        <input type="number" name="fioul" value={formData.fioul} onChange={handleChange} className="mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500" />
+                                    </label>
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Bois</span>
+                                        <input type="number" name="bois" value={formData.bois} onChange={handleChange} className="mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500" />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* NUMERIQUE */}
+                            <div className="bg-white rounded-xl shadow-lg p-6">
+                                <div className="flex items-center mb-4">
+                                    <Wifi className="w-6 h-6 text-purple-600 mr-2" />
+                                    <h2 className="text-xl font-bold text-gray-800">Numérique</h2>
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Données (GB/mois)</span>
+                                        <input type="number" name="donnees" value={formData.donnees} onChange={handleChange} className="mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" />
+                                    </label>
+                                    <label className="flex flex-col">
+                                        <span className="text-sm font-medium text-gray-700">Streaming (heures/jour)</span>
+                                        <input type="number" name="streaming" value={formData.streaming} onChange={handleChange} className="mt-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500" />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="text-center mb-8 space-y-4">
+                            <button onClick={calculateEmissions} className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-4 rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                                Calculer mon empreinte carbone
+                            </button>
+                            <div>
+                                <button onClick={resetToDefaults} className="text-gray-600 hover:text-gray-800 inline-flex items-center text-sm font-medium">
+                                    <RotateCcw className="w-4 h-4 mr-2" /> Réinitialiser
+                                </button>
+                            </div>
+                        </div>
+
+                        {results && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="bg-white rounded-xl shadow-lg p-8 text-center border-t-4 border-green-500">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Résultat Annuel</h2>
+                                    <div className="text-6xl font-bold text-green-600 mb-2">{results.tonnes}</div>
+                                    <div className="text-2xl text-gray-600 mb-4">tonnes de CO₂e</div>
+                                    <div className="mt-4 p-4 bg-blue-50 rounded-lg inline-block">
+                                        <p className="text-sm text-gray-700">
+                                            Moyenne française : <strong>{MOYENNE_FRANCAISE.total / 1000} tonnes</strong>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-4">Répartition</h3>
+                                        <ResponsiveContainer width="100%" height={300}>
+                                            <PieChart>
+                                                <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
+                                                    {pieData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-4">Comparaison</h3>
+                                        <ResponsiveContainer width="100%" height={300}>
+                                            <BarChart data={comparisonData}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey="category" />
+                                                <YAxis />
+                                                <Tooltip />
+                                                <Legend />
+                                                <Bar dataKey="vous" fill="#10b981" name="Vous" />
+                                                <Bar dataKey="moyenne" fill="#94a3b8" name="Moyenne FR" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* AMÉLIORATION #3 : Historique */}
+                                {history.length > 1 && (
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-4">Votre Progression</h3>
+                                        <ResponsiveContainer width="100%" height={300}>
+                                            <LineChart data={history}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey="date" tickFormatter={(d) => new Date(d).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} />
+                                                <YAxis domain={['auto', 'auto']} />
+                                                <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
+                                                <Legend />
+                                                <Line type="monotone" dataKey="total" name="Total CO2 (kg)" stroke="#8b5cf6" strokeWidth={2} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+
+                                {getRecommendations().length > 0 && (
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex items-center mb-4">
+                                            <TrendingDown className="w-6 h-6 text-green-600 mr-2" />
+                                            <h3 className="text-xl font-bold text-gray-800">Recommandations</h3>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {getRecommendations().map((rec, index) => (
+                                                <div key={index} className="flex items-start p-4 bg-green-50 rounded-lg">
+                                                    <div className="text-green-600 mr-3 mt-1">{rec.icon}</div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-gray-800">{rec.category}</h4>
+                                                        <p className="text-gray-700 text-sm">{rec.text}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Rendu
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CarbonCalculator />);
+    </script>
+</body>
+</html>
