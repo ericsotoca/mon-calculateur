@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone Détaillé</title>
+    <title>Calculateur Carbone - Version Finale</title>
     
     <!-- 1. STYLE : Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,16 +19,17 @@
         body { font-family: 'Segoe UI', sans-serif; }
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Transition douce pour les onglets */
+        .tab-transition { transition: all 0.2s ease-in-out; }
     </style>
 </head>
 <body class="bg-slate-50 text-gray-800">
 
     <div id="root" class="flex flex-col items-center justify-center min-h-screen">
-        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement...</div>
+        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement de l'application...</div>
     </div>
 
     <script type="text/babel">
-        // Sécurité
         if (!window.React || !window.Recharts) { throw new Error("Librairies manquantes"); }
 
         const { useState, useEffect } = React;
@@ -41,7 +42,7 @@
         const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>;
         const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
 
-        // --- DONNEES ---
+        // --- CONSTANTES ---
         const EMISSION_FACTORS = {
             alimentation: { omnivore: { factor: 3 }, vegetarien: { factor: 1.7 }, vegan: { factor: 1.5 } },
             transport: { voiture: { factor: 0.192 }, bus: { factor: 0.105 }, train: { factor: 0.041 }, avion: { factor: 0.255 } },
@@ -49,15 +50,25 @@
             numerique: { donnees: { factor: 0.06 }, streaming: { factor: 0.05 } }
         };
 
-        const MOYENNE_FRANCAISE = { alimentation: 2300, transport: 2100, logement: 2200, numerique: 150, total: 9400 };
-        const VALEURS_MOYENNES = { repasOmnivore: '14', repasVegetarien: '5', repasVegan: '2', voiture: '100', bus: '20', train: '10', avion: '2000', electricite: '200', gaz: '100', fioul: '0', bois: '0', donnees: '50', streaming: '2' };
+        const MOYENNE_FRANCAISE = { total: 9400 };
         const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
+
+        // Valeurs par défaut
+        const VALEURS_MOYENNES = { 
+            repasOmnivore: '14', repasVegetarien: '5', repasVegan: '2', 
+            voiture: '100', bus: '20', train: '10', avion: '0', 
+            electricite: '200', gaz: '100', fioul: '0', bois: '0', 
+            donnees: '50', streaming: '2' 
+        };
 
         function CarbonCalculator() {
             const [formData, setFormData] = useState(VALEURS_MOYENNES);
             const [results, setResults] = useState(null);
             const [history, setHistory] = useState([]);
-            const [transportPeriod, setTransportPeriod] = useState({ voiture: 'semaine', bus: 'semaine', train: 'semaine', avion: 'an' });
+            
+            // NOUVEAU : État global pour la vue transport
+            // 'semaine', 'mois', ou 'an'
+            const [transportView, setTransportView] = useState('semaine');
 
             useEffect(() => {
                 try {
@@ -67,28 +78,27 @@
             }, []);
 
             const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
-            const handlePeriod = (mode, val) => setTransportPeriod({...transportPeriod, [mode]: val});
             
-            const convertToAnnual = (val, mode) => {
+            // Fonction de conversion basée sur l'onglet sélectionné
+            const convertTransportToAnnual = (val) => {
                 const v = parseFloat(val) || 0;
-                const p = transportPeriod[mode];
-                return p === 'semaine' ? v * 52 : p === 'mois' ? v * 12 : v;
+                if (transportView === 'semaine') return v * 52;
+                if (transportView === 'mois') return v * 12;
+                return v; // cas 'an'
             };
 
             const calculate = () => {
-                // 1. Calculs Détaillés (Ligne par ligne)
-                
                 // Alimentation
                 const vOmni = (parseFloat(formData.repasOmnivore)||0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365;
                 const vVege = (parseFloat(formData.repasVegetarien)||0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365;
                 const vVegan = (parseFloat(formData.repasVegan)||0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
                 const totalAlim = vOmni + vVege + vVegan;
 
-                // Transport
-                const vVoit = convertToAnnual(formData.voiture, 'voiture') * EMISSION_FACTORS.transport.voiture.factor;
-                const vBus = convertToAnnual(formData.bus, 'bus') * EMISSION_FACTORS.transport.bus.factor;
-                const vTrain = convertToAnnual(formData.train, 'train') * EMISSION_FACTORS.transport.train.factor;
-                const vAvion = convertToAnnual(formData.avion, 'avion') * EMISSION_FACTORS.transport.avion.factor;
+                // Transport (Utilise la nouvelle fonction globale)
+                const vVoit = convertTransportToAnnual(formData.voiture) * EMISSION_FACTORS.transport.voiture.factor;
+                const vBus = convertTransportToAnnual(formData.bus) * EMISSION_FACTORS.transport.bus.factor;
+                const vTrain = convertTransportToAnnual(formData.train) * EMISSION_FACTORS.transport.train.factor;
+                const vAvion = convertTransportToAnnual(formData.avion) * EMISSION_FACTORS.transport.avion.factor;
                 const totalTrans = vVoit + vBus + vTrain + vAvion;
 
                 // Logement
@@ -105,7 +115,6 @@
 
                 const grandTotal = totalAlim + totalTrans + totalLog + totalNum;
 
-                // 2. Construction de l'objet résultat complet
                 const res = {
                     alimentation: Math.round(totalAlim),
                     transport: Math.round(totalTrans),
@@ -114,28 +123,18 @@
                     total: Math.round(grandTotal),
                     tonnes: (grandTotal/1000).toFixed(2),
                     date: new Date().toISOString(),
-                    // Nouveau : Détail pour l'affichage tableau
                     details: [
                         { category: "Alimentation", icon: <IconLeaf />, color: "text-green-600", items: [
-                            { label: "Repas Omnivore", val: vOmni },
-                            { label: "Repas Végétarien", val: vVege },
-                            { label: "Repas Végan", val: vVegan }
+                            { label: "Omnivore", val: vOmni }, { label: "Végétarien", val: vVege }, { label: "Végan", val: vVegan }
                         ]},
                         { category: "Transport", icon: <IconCar />, color: "text-blue-600", items: [
-                            { label: "Voiture", val: vVoit },
-                            { label: "Bus", val: vBus },
-                            { label: "Train", val: vTrain },
-                            { label: "Avion", val: vAvion }
+                            { label: "Voiture", val: vVoit }, { label: "Bus", val: vBus }, { label: "Train", val: vTrain }, { label: "Avion", val: vAvion }
                         ]},
                         { category: "Logement", icon: <IconHome />, color: "text-orange-600", items: [
-                            { label: "Électricité", val: vElec },
-                            { label: "Gaz", val: vGaz },
-                            { label: "Fioul", val: vFioul },
-                            { label: "Bois", val: vBois }
+                            { label: "Électricité", val: vElec }, { label: "Gaz", val: vGaz }, { label: "Fioul", val: vFioul }, { label: "Bois", val: vBois }
                         ]},
                         { category: "Numérique", icon: <IconWifi />, color: "text-purple-600", items: [
-                            { label: "Données Mobiles/Wifi", val: vDonnees },
-                            { label: "Streaming", val: vStream }
+                            { label: "Données", val: vDonnees }, { label: "Streaming", val: vStream }
                         ]}
                     ]
                 };
@@ -148,6 +147,7 @@
 
             const reset = () => {
                 setFormData(VALEURS_MOYENNES);
+                setTransportView('semaine'); // Reset aussi la vue
                 setResults(null);
             };
 
@@ -160,17 +160,17 @@
 
             return (
                 <div className="max-w-6xl mx-auto p-4 md:p-8 fade-in">
-                    <div className="text-center mb-10">
+                    <header className="text-center mb-10">
                         <div className="flex justify-center items-center text-green-600 mb-2">
                             <IconLeaf />
                             <h1 className="text-3xl font-bold ml-2 text-gray-800">Calculateur Carbone</h1>
                         </div>
                         <p className="text-gray-600">Estimez votre impact annuel (kg CO₂e)</p>
-                    </div>
+                    </header>
 
-                    {/* FORMULAIRES */}
                     <div className="grid md:grid-cols-2 gap-6 mb-8">
-                        {/* ALIM */}
+                        
+                        {/* 1. ALIMENTATION */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
                             <h2 className="text-lg font-bold mb-4 flex items-center"><IconLeaf /> <span className="ml-2">Alimentation</span></h2>
                             <p className="text-xs text-gray-500 uppercase font-bold mb-3">Repas par semaine</p>
@@ -184,25 +184,54 @@
                             </div>
                         </div>
 
-                        {/* TRANSPORT */}
+                        {/* 2. TRANSPORT (AMÉLIORÉ AVEC ONGLETS) */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
-                            <h2 className="text-lg font-bold mb-4 flex items-center"><IconCar /> <span className="ml-2">Transport</span></h2>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                                <h2 className="text-lg font-bold flex items-center"><IconCar /> <span className="ml-2">Transport</span></h2>
+                                
+                                {/* SELECTEUR DE VUE (TABS) */}
+                                <div className="bg-gray-100 p-1 rounded-lg flex text-xs font-semibold">
+                                    {['semaine', 'mois', 'an'].map((view) => (
+                                        <button 
+                                            key={view}
+                                            onClick={() => setTransportView(view)}
+                                            className={`px-3 py-1.5 rounded-md capitalize tab-transition ${
+                                                transportView === view 
+                                                ? 'bg-white text-blue-600 shadow-sm' 
+                                                : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {view}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-gray-500 uppercase font-bold mb-3">
+                                Distance par <span className="text-blue-600">{transportView}</span>
+                            </p>
+
                             <div className="space-y-3">
                                 {['voiture', 'bus', 'train', 'avion'].map(m => (
-                                    <div key={m} className="flex gap-2 items-center">
-                                        <label className="w-16 capitalize text-sm">{m}</label>
-                                        <input type="number" name={m} value={formData[m]} onChange={handleChange} className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="km" />
-                                        <select value={transportPeriod[m]} onChange={(e)=>handlePeriod(m, e.target.value)} className="bg-gray-100 p-2 rounded text-sm">
-                                            <option value="semaine">/sem</option>
-                                            <option value="mois">/mois</option>
-                                            <option value="an">/an</option>
-                                        </select>
+                                    <div key={m} className="flex justify-between items-center">
+                                        <label className="capitalize text-sm w-24">{m}</label>
+                                        <div className="relative flex-1">
+                                            <input 
+                                                type="number" 
+                                                name={m} 
+                                                value={formData[m]} 
+                                                onChange={handleChange} 
+                                                className="w-full p-2 pr-10 border rounded focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                                placeholder="0" 
+                                            />
+                                            <span className="absolute right-3 top-2 text-xs text-gray-400">km</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* LOGEMENT */}
+                        {/* 3. LOGEMENT */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-orange-500">
                             <h2 className="text-lg font-bold mb-4 flex items-center"><IconHome /> <span className="ml-2">Logement (kWh/mois)</span></h2>
                             <div className="grid grid-cols-2 gap-4">
@@ -215,7 +244,7 @@
                             </div>
                         </div>
 
-                        {/* NUMERIQUE */}
+                        {/* 4. NUMERIQUE */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-purple-500">
                             <h2 className="text-lg font-bold mb-4 flex items-center"><IconWifi /> <span className="ml-2">Numérique</span></h2>
                             <div className="space-y-4">
@@ -232,7 +261,7 @@
 
                     {results && (
                         <div className="fade-in space-y-8 pb-12">
-                            {/* SCORE PRINCIPAL */}
+                            {/* SCORE */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
                                 <h2 className="text-2xl font-bold text-gray-700">Résultat Annuel</h2>
                                 <div className="text-6xl font-extrabold text-green-600 my-2">{results.tonnes}</div>
@@ -270,7 +299,7 @@
                                 )}
                             </div>
 
-                            {/* TABLEAU DE DÉTAILS - NOUVEAU ! */}
+                            {/* TABLEAU DE DÉTAIL */}
                             <div className="bg-white p-6 rounded-xl shadow-lg">
                                 <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Détail des émissions (kg CO₂e / an)</h3>
                                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -291,9 +320,7 @@
                                                 ))}
                                                 <li className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200 font-bold text-gray-800">
                                                     <span>Total</span>
-                                                    <span>
-                                                        {Math.round(cat.items.reduce((acc, curr) => acc + curr.val, 0)).toLocaleString()} kg
-                                                    </span>
+                                                    <span>{Math.round(cat.items.reduce((acc, curr) => acc + curr.val, 0)).toLocaleString()} kg</span>
                                                 </li>
                                             </ul>
                                         </div>
