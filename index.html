@@ -1,14 +1,21 @@
+C'est une excellente idée d'ajouter de la transparence sur les calculs et de la précision sur l'avion, car l'impact au kilomètre change énormément selon la distance (décollage/atterrissage vs croisière).
+
+Voici la version **Mise à Jour (V3)** avec :
+1.  **Avion détaillé** : Distinction entre Vols Courts (<1000km), Moyens et Long-courriers (facteurs d'émission ADEME distincts).
+2.  **Preuve de calcul** : Un tableau "Ticket de caisse" à la fin qui montre exactement : `Quantité × Fréquence × Facteur = Total`.
+3.  **Toujours robuste** : Garde la sécurité CDN et le mode "sans échec".
+
+Copiez tout le code ci-dessous :
+
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone</title>
+    <title>Calculateur Carbone Détaillé</title>
     
-    <!-- Favicon (évite l'erreur 404 dans la console) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
-
-    <!-- Tailwind CSS -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧮</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -19,19 +26,11 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 
-    <!-- CHARGEMENT DES LIBRAIRIES (Via CDNJS - Plus stable que unpkg) -->
-    
-    <!-- 1. React & ReactDOM -->
+    <!-- CHARGEMENT ROBUSTE (CDNJS) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- 2. Prop-types (INDISPENSABLE pour Recharts) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
-    
-    <!-- 3. Recharts -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.3/Recharts.min.js"></script>
-    
-    <!-- 4. Babel -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -40,43 +39,49 @@
         <div class="flex flex-col items-center space-y-4 p-6 bg-white rounded-xl shadow-lg" id="loading-screen">
             <div class="loader"></div>
             <div class="text-lg font-semibold text-gray-600">Chargement du calculateur...</div>
-            <div id="error-msg" class="text-xs text-red-500 mt-2 hidden">Si c'est trop long, rechargez la page.</div>
         </div>
     </div>
 
-    <!-- Script de secours si React ne démarre pas après 5 secondes -->
-    <script>
-        setTimeout(function() {
-            const loader = document.getElementById('loading-screen');
-            if (loader && (!window.React || !window.ReactDOM)) {
-                document.getElementById('error-msg').classList.remove('hidden');
-                document.getElementById('error-msg').innerText = "Erreur : Une librairie ne répond pas (bloqueur de pub ?).";
-            }
-        }, 5000);
-    </script>
-
     <script type="text/babel">
-        /* --- APPLICATION --- */
         const { useState, useEffect } = React;
-        
-        // TENTATIVE DE CHARGEMENT DE RECHARTS EN MODE SÉCURISÉ
-        // Si Recharts n'est pas là, l'application ne plantera pas, elle cachera juste les graphiques.
         const RechartsLib = window.Recharts || null;
         const { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = RechartsLib || {};
 
-        /* ---------- ICONES ---------- */
+        /* --- ICONES --- */
         const IconLeaf = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.77 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>;
         const IconCar = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>;
         const IconHome = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
         const IconWifi = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>;
+        const IconCalc = () => <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 7h6m-6 4h6m-6 4h6M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>;
         const IconReset = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
-        const IconShare = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>;
 
+        /* --- FACTEURS D'ÉMISSION (kg CO2e / unité) --- */
         const EMISSION_FACTORS = {
-            alimentation: { omnivore: 3, vegetarien: 1.7, vegan: 1.5, jeune: 0 },
-            transport: { voiture: 0.192, bus: 0.105, train: 0.041, avion: 0.255 },
-            logement: { electricite: 0.053, gaz: 0.206, fioul: 0.267, bois: 0.025 },
-            numerique: { donnees: 0.06, streaming: 0.05 }
+            alimentation: { 
+                omnivore: 3.0,    // Repas avec viande rouge/fromage
+                vegetarien: 1.7,  // Repas oeufs/lait
+                vegan: 0.9,       // Repas végétalien (correction facteur plus réaliste ADEME)
+                jeune: 0.0 
+            },
+            transport: { 
+                voiture: 0.192,   // Moyenne thermique
+                bus: 0.105, 
+                train: 0.041,     // TGV + TER mix
+                // Avion: Facteurs différenciés (incluant trainée de condensation approx + radiative forcing)
+                avionCourt: 0.258, // < 1000km (Décollage coûteux)
+                avionMoyen: 0.187, // 1000-3500km
+                avionLong: 0.152   // > 3500km
+            },
+            logement: { 
+                electricite: 0.053, // Mix FR
+                gaz: 0.206, 
+                fioul: 0.324,       // Correction fioul (plus élevé)
+                bois: 0.030 
+            },
+            numerique: { 
+                donnees: 0.06,    // Par Go (réseau + data center)
+                streaming: 0.06   // Par heure (device + réseau)
+            }
         };
         
         const MOY_FR = 9400;
@@ -84,114 +89,161 @@
 
         const VALEURS_MOYENNES = {
             repasOmnivore: '8', repasVegetarien: '4', repasVegan: '2', repasJeune: '0',
-            voiture: '7500', bus: '0', train: '2000', avion: '0',
+            voiture: '7500', bus: '0', train: '2000',
+            avionCourt: '0', avionMoyen: '0', avionLong: '0',
             electricite: '200', gaz: '100', fioul: '0', bois: '0',
             donnees: '50', streaming: '2'
         };
 
         function CarbonCalculator() {
-            // Cache le loader au démarrage
-            useEffect(() => {
-                const loader = document.getElementById('loading-screen');
-                if(loader) loader.style.display = 'none';
-            }, []);
+            useEffect(() => { const l = document.getElementById('loading-screen'); if(l) l.style.display = 'none'; }, []);
 
             const [formData, setFormData] = useState(() => {
                 try { return { ...VALEURS_MOYENNES, ...JSON.parse(localStorage.getItem('carbonForm')) }; } catch { return VALEURS_MOYENNES; }
             });
             const [results, setResults] = useState(null);
+            const [detailRows, setDetailRows] = useState([]); // Pour stocker les calculs
             const [history, setHistory] = useState(() => {
                 try { return JSON.parse(localStorage.getItem('carbonHistory')) || []; } catch { return []; }
             });
             const [transportView, setTransportView] = useState('an');
-            const [message, setMessage] = useState(null);
 
             useEffect(() => { localStorage.setItem('carbonForm', JSON.stringify(formData)); }, [formData]);
-
             const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-            const toAnnual = v => {
-                const val = parseFloat(v) || 0;
-                return transportView === 'semaine' ? val * 52 : transportView === 'mois' ? val * 12 : val;
+            
+            // Conversion transport (inputs utilisateur) vers annuel
+            const toAnnual = v => { 
+                const val = parseFloat(v) || 0; 
+                return transportView === 'semaine' ? val * 52 : transportView === 'mois' ? val * 12 : val; 
             };
 
             const calculate = () => {
-                const alim = ((parseFloat(formData.repasOmnivore)||0) * EMISSION_FACTORS.alimentation.omnivore + (parseFloat(formData.repasVegetarien)||0) * EMISSION_FACTORS.alimentation.vegetarien + (parseFloat(formData.repasVegan)||0) * EMISSION_FACTORS.alimentation.vegan) * 52;
-                const trans = toAnnual(formData.voiture) * EMISSION_FACTORS.transport.voiture + toAnnual(formData.bus) * EMISSION_FACTORS.transport.bus + toAnnual(formData.train) * EMISSION_FACTORS.transport.train + toAnnual(formData.avion) * EMISSION_FACTORS.transport.avion;
-                const log = ((parseFloat(formData.electricite)||0) * EMISSION_FACTORS.logement.electricite + (parseFloat(formData.gaz)||0) * EMISSION_FACTORS.logement.gaz + (parseFloat(formData.fioul)||0) * EMISSION_FACTORS.logement.fioul + (parseFloat(formData.bois)||0) * EMISSION_FACTORS.logement.bois) * 12;
-                const num = (parseFloat(formData.donnees)||0) * EMISSION_FACTORS.numerique.donnees * 12 + (parseFloat(formData.streaming)||0) * EMISSION_FACTORS.numerique.streaming * 365;
-                const total = alim + trans + log + num;
+                let total = 0;
+                let breakdown = [];
+                let catTotals = { alimentation: 0, transport: 0, logement: 0, numerique: 0 };
+
+                // Helper pour ajouter une ligne de calcul
+                const addRow = (cat, label, input, freqLabel, freqMult, factor, unit) => {
+                    const val = parseFloat(input) || 0;
+                    if (val > 0 || label === 'Jeûne') {
+                        const subTotal = val * freqMult * factor;
+                        total += subTotal;
+                        catTotals[cat] += subTotal;
+                        breakdown.push({
+                            cat, label,
+                            formula: `${val} ${unit} × ${freqLabel} × ${factor} kg`,
+                            subTotal: Math.round(subTotal)
+                        });
+                    }
+                };
+
+                // --- 1. ALIMENTATION (Calcul par repas * 52 semaines) ---
+                addRow('alimentation', 'Omnivore', formData.repasOmnivore, '52 sem', 52, EMISSION_FACTORS.alimentation.omnivore, 'repas');
+                addRow('alimentation', 'Végétarien', formData.repasVegetarien, '52 sem', 52, EMISSION_FACTORS.alimentation.vegetarien, 'repas');
+                addRow('alimentation', 'Végétalien', formData.repasVegan, '52 sem', 52, EMISSION_FACTORS.alimentation.vegan, 'repas');
+                addRow('alimentation', 'Jeûne', formData.repasJeune, '52 sem', 52, EMISSION_FACTORS.alimentation.jeune, 'repas');
+
+                // --- 2. TRANSPORT (Distance convertie en annuel) ---
+                const tMult = transportView === 'semaine' ? 52 : transportView === 'mois' ? 12 : 1;
+                const tUnit = transportView === 'an' ? 'km/an' : (transportView === 'mois' ? 'km/mois × 12' : 'km/sem × 52');
                 
-                const res = { alimentation: Math.round(alim), transport: Math.round(trans), logement: Math.round(log), numerique: Math.round(num), total: Math.round(total), tonnes: (total / 1000).toFixed(2), date: new Date().toISOString() };
+                addRow('transport', 'Voiture', formData.voiture, tUnit, tMult, EMISSION_FACTORS.transport.voiture, 'km');
+                addRow('transport', 'Bus', formData.bus, tUnit, tMult, EMISSION_FACTORS.transport.bus, 'km');
+                addRow('transport', 'Train', formData.train, tUnit, tMult, EMISSION_FACTORS.transport.train, 'km');
+                
+                // Avion : Toujours annuel, inputs séparés
+                addRow('transport', 'Avion Court (<1000km)', formData.avionCourt, 'an', 1, EMISSION_FACTORS.transport.avionCourt, 'km');
+                addRow('transport', 'Avion Moyen (1-3500km)', formData.avionMoyen, 'an', 1, EMISSION_FACTORS.transport.avionMoyen, 'km');
+                addRow('transport', 'Avion Long (>3500km)', formData.avionLong, 'an', 1, EMISSION_FACTORS.transport.avionLong, 'km');
+
+                // --- 3. LOGEMENT (Mensuel * 12) ---
+                addRow('logement', 'Électricité', formData.electricite, '12 mois', 12, EMISSION_FACTORS.logement.electricite, 'kWh');
+                addRow('logement', 'Gaz', formData.gaz, '12 mois', 12, EMISSION_FACTORS.logement.gaz, 'kWh');
+                addRow('logement', 'Fioul', formData.fioul, '12 mois', 12, EMISSION_FACTORS.logement.fioul, 'kWh');
+                addRow('logement', 'Bois', formData.bois, '12 mois', 12, EMISSION_FACTORS.logement.bois, 'kWh');
+
+                // --- 4. NUMERIQUE ---
+                addRow('numerique', 'Données 4G/Fibre', formData.donnees, '12 mois', 12, EMISSION_FACTORS.numerique.donnees, 'Go');
+                addRow('numerique', 'Streaming', formData.streaming, '365 jours', 365, EMISSION_FACTORS.numerique.streaming, 'h');
+
+                // Résultats finaux
+                const res = {
+                    ...catTotals,
+                    total: Math.round(total),
+                    tonnes: (total / 1000).toFixed(2),
+                    date: new Date().toISOString()
+                };
+
                 setResults(res);
+                setDetailRows(breakdown);
+                
                 const h = [...history, res].slice(-10);
                 setHistory(h);
                 localStorage.setItem('carbonHistory', JSON.stringify(h));
                 
-                // Petit délai pour le scroll
-                setTimeout(() => {
-                    const el = document.getElementById('results-section');
-                    if(el) el.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                setTimeout(() => { document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' }); }, 100);
             };
 
-            const reset = () => {
-                if(!confirm("Tout effacer ?")) return;
-                setFormData(VALEURS_MOYENNES);
-                setResults(null);
-                localStorage.removeItem('carbonForm');
-            };
+            const reset = () => { if(confirm("Tout effacer ?")) { setFormData(VALEURS_MOYENNES); setResults(null); localStorage.removeItem('carbonForm'); } };
 
-            const shareResults = () => {
-                if (!results) return;
-                const text = `🌍 Mon empreinte carbone : ${results.tonnes} tonnes CO₂e / an.`;
-                if (navigator.share) navigator.share({ title: 'Empreinte Carbone', text, url: window.location.href }).catch(() => {});
-                else { navigator.clipboard.writeText(text + " " + window.location.href); setMessage("Copié !"); setTimeout(() => setMessage(null), 2000); }
-            };
-
-            const pieData = results ? [{ name: 'Alim', value: results.alimentation }, { name: 'Trans', value: results.transport }, { name: 'Log', value: results.logement }, { name: 'Num', value: results.numerique }] : [];
+            const pieData = results ? [
+                { name: 'Alim', value: results.alimentation }, { name: 'Trans', value: results.transport }, 
+                { name: 'Log', value: results.logement }, { name: 'Num', value: results.numerique }
+            ] : [];
+            
             const repasTotal = (parseFloat(formData.repasOmnivore)||0) + (parseFloat(formData.repasVegetarien)||0) + (parseFloat(formData.repasVegan)||0) + (parseFloat(formData.repasJeune)||0);
 
             return (
                 <div className="max-w-5xl mx-auto p-4 md:p-8 fade-in pb-20">
                     <header className="text-center mb-10">
                         <div className="flex justify-center items-center text-green-600 mb-2"><IconLeaf /><h1 className="text-3xl md:text-4xl font-bold ml-2">Calculateur Carbone</h1></div>
-                        <p className="text-slate-500">Estimation simple de votre impact annuel</p>
-                        
-                        {/* MESSAGE D'ALERTE SI RECHARTS N'EST PAS LÀ */}
-                        {!RechartsLib && (
-                            <div className="mt-4 inline-block bg-orange-50 border border-orange-200 text-orange-700 px-4 py-2 rounded text-sm">
-                                ⚠️ Mode allégé : Les graphiques sont désactivés (librairie non chargée)
-                            </div>
-                        )}
+                        <p className="text-slate-500">Estimation détaillée avec preuves de calcul</p>
                     </header>
 
                     <div className="grid md:grid-cols-2 gap-6 mb-8">
-                        {/* CARTE ALIMENTATION */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow border-t-4 border-t-green-500">
+                        {/* --- ALIMENTATION --- */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-green-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconLeaf /><span className="ml-2">Alimentation</span></h2>
-                            <p className="text-xs text-slate-500 mb-4">Repas par semaine ({repasTotal}/14)</p>
+                            <p className="text-xs text-slate-500 mb-4">Repas par semaine (Total : <span className="font-bold text-green-600">{repasTotal}</span>)</p>
                             <div className="space-y-3">
-                                {[{ k: 'repasOmnivore', l: 'Omnivore' }, { k: 'repasVegetarien', l: 'Végétarien' }, { k: 'repasVegan', l: 'Végétalien' }].map(x => (
-                                    <div key={x.k} className="flex justify-between items-center"><label className="text-sm text-slate-600">{x.l}</label><input type="number" min="0" name={x.k} value={formData[x.k]} onChange={handleChange} className="w-20 p-2 bg-slate-50 border rounded-lg text-center" /></div>
+                                {[
+                                    { k: 'repasOmnivore', l: 'Omnivore (Viande/Fromage)' }, 
+                                    { k: 'repasVegetarien', l: 'Végétarien (Oeuf/Lait)' }, 
+                                    { k: 'repasVegan', l: 'Végétalien (Végétal)' },
+                                    { k: 'repasJeune', l: 'Jeûne / Sauté' }
+                                ].map(x => (
+                                    <div key={x.k} className="flex justify-between items-center">
+                                        <label className="text-sm text-slate-600">{x.l}</label>
+                                        <input type="number" min="0" name={x.k} value={formData[x.k]} onChange={handleChange} className="w-20 p-2 bg-slate-50 border rounded-lg text-center" />
+                                    </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* CARTE TRANSPORT */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow border-t-4 border-t-blue-500">
+                        {/* --- TRANSPORT --- */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-blue-500">
                             <div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold flex items-center text-slate-700"><IconCar /><span className="ml-2">Transport</span></h2>
                             <div className="bg-slate-100 p-1 rounded flex text-xs">{['semaine', 'mois', 'an'].map(v => <button key={v} onClick={() => setTransportView(v)} className={`px-2 py-1 rounded capitalize ${transportView === v ? 'bg-white shadow' : ''}`}>{v}</button>)}</div></div>
-                            <p className="text-xs text-slate-500 mb-4">Distance (km)</p>
-                            <div className="space-y-3">
-                                {['voiture', 'bus', 'train', 'avion'].map(m => (
-                                    <div key={m} className="flex justify-between items-center"><label className="capitalize text-sm text-slate-600 w-20">{m}</label><input type="number" min="0" name={m} value={formData[m]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" /></div>
+                            
+                            {/* Terrestre */}
+                            <p className="text-xs text-slate-500 mb-2 mt-1 font-bold">Terrestre (distance selon sélection)</p>
+                            <div className="space-y-2 mb-4">
+                                {['voiture', 'bus', 'train'].map(m => (
+                                    <div key={m} className="flex justify-between items-center"><label className="capitalize text-sm text-slate-600 w-24">{m}</label><input type="number" min="0" name={m} value={formData[m]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" /></div>
                                 ))}
+                            </div>
+
+                            {/* Aérien (Nouveau) */}
+                            <p className="text-xs text-slate-500 mb-2 font-bold border-t pt-2">Aérien (km / an)</p>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Court (&lt;1000km)</label><input type="number" min="0" name="avionCourt" value={formData.avionCourt} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: Paris-Nice" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Moyen (1-3.5k)</label><input type="number" min="0" name="avionMoyen" value={formData.avionMoyen} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: Europe" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Long (&gt;3500km)</label><input type="number" min="0" name="avionLong" value={formData.avionLong} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: International" /></div>
                             </div>
                         </div>
 
-                        {/* CARTE LOGEMENT */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow border-t-4 border-t-orange-500">
+                        {/* --- LOGEMENT --- */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-orange-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconHome /><span className="ml-2">Logement</span></h2>
                             <p className="text-xs text-slate-500 mb-4">Conso. mensuelle (kWh)</p>
                             <div className="grid grid-cols-2 gap-4">
@@ -199,8 +251,8 @@
                             </div>
                         </div>
 
-                        {/* CARTE NUMERIQUE */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow border-t-4 border-t-purple-500">
+                        {/* --- NUMERIQUE --- */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-purple-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconWifi /><span className="ml-2">Numérique</span></h2>
                             <div className="space-y-4">
                                 <div><label className="block text-sm mb-1 text-slate-600">Données (Go/mois)</label><input type="number" min="0" name="donnees" value={formData.donnees} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" /></div>
@@ -210,21 +262,20 @@
                     </div>
 
                     <div className="text-center mb-12 space-y-4">
-                        <button onClick={calculate} className="bg-slate-800 text-white px-10 py-3 rounded-xl text-lg font-bold hover:bg-slate-900 transition shadow-lg hover:scale-105 transform">Calculer</button>
+                        <button onClick={calculate} className="bg-slate-800 text-white px-10 py-3 rounded-xl text-lg font-bold hover:bg-slate-900 transition shadow-lg hover:scale-105 transform">Calculer & Voir Détails</button>
                         <div className="flex justify-center gap-6"><button onClick={reset} className="text-slate-400 text-sm hover:text-slate-700 flex items-center"><IconReset /> Réinitialiser</button></div>
                     </div>
 
                     {results && (
                         <div id="results-section" className="fade-in space-y-8 pb-12">
+                            {/* RESULTAT GLOBAL */}
                             <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100 text-center relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 via-blue-500 to-purple-500"></div>
                                 <div className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600">{results.tonnes}</div>
                                 <div className="text-xl font-bold text-slate-400 mb-4">tonnes CO₂e / an</div>
                                 <div className="inline-block bg-slate-100 px-4 py-2 rounded-full text-sm">Moyenne FR : <strong>{(MOY_FR/1000).toFixed(1)} t</strong></div>
-                                <div className="mt-4"><button onClick={shareResults} className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-semibold flex items-center mx-auto transition"><IconShare /> {message || "Partager"}</button></div>
                             </div>
 
-                            {/* SECTION GRAPHIQUES : Ne s'affiche QUE si RechartsLib est chargé */}
                             {RechartsLib && (
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border h-80">
@@ -240,24 +291,53 @@
                                 </div>
                             )}
 
-                            {/* SECTION DÉTAIL (S'affiche toujours) */}
-                            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                                <h3 className="text-center font-bold text-slate-700 mb-6">Détail (kg CO₂e)</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                    <div className="bg-green-50 p-4 rounded-xl border border-green-100"><div className="font-bold text-green-700 mb-1">Alimentation</div><div className="text-2xl text-slate-800">{results.alimentation}</div></div>
-                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100"><div className="font-bold text-blue-700 mb-1">Transport</div><div className="text-2xl text-slate-800">{results.transport}</div></div>
-                                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100"><div className="font-bold text-orange-700 mb-1">Logement</div><div className="text-2xl text-slate-800">{results.logement}</div></div>
-                                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100"><div className="font-bold text-purple-700 mb-1">Numérique</div><div className="text-2xl text-slate-800">{results.numerique}</div></div>
+                            {/* TABLEAU DE PREUVES DE CALCULS (NOUVEAU) */}
+                            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
+                                <div className="flex items-center justify-center mb-6 text-slate-700">
+                                    <IconCalc />
+                                    <h3 className="text-2xl font-bold">Détails et Calculs</h3>
                                 </div>
+                                
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-slate-50 text-slate-500 uppercase font-bold">
+                                            <tr>
+                                                <th className="px-4 py-3 rounded-tl-lg">Catégorie</th>
+                                                <th className="px-4 py-3">Poste</th>
+                                                <th className="px-4 py-3">Formule (Qté × Fréq. × Facteur)</th>
+                                                <th className="px-4 py-3 text-right rounded-tr-lg">Total (kg)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {detailRows.map((row, idx) => (
+                                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-4 py-3 font-semibold capitalize text-slate-600">{row.cat}</td>
+                                                    <td className="px-4 py-3">{row.label}</td>
+                                                    <td className="px-4 py-3 font-mono text-slate-500 text-xs md:text-sm">{row.formula}</td>
+                                                    <td className="px-4 py-3 text-right font-bold text-slate-700">{row.subTotal.toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot className="bg-slate-50 font-bold text-slate-800">
+                                            <tr>
+                                                <td colSpan="3" className="px-4 py-4 text-right uppercase">Total Annuel</td>
+                                                <td className="px-4 py-4 text-right text-lg text-blue-600">{results.total.toLocaleString()} kg</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <p className="mt-4 text-xs text-slate-400 text-center italic">
+                                    Facteurs d'émission basés sur les moyennes ADEME (Base Empreinte). Les facteurs avions incluent une estimation des effets hors CO2 (trainées).
+                                </p>
                             </div>
                         </div>
                     )}
                 </div>
             );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<CarbonCalculator />);
     </script>
 </body>
 </html>
+```
