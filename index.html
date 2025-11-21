@@ -3,24 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone</title>
+    <title>Calculateur Carbone Détaillé</title>
     
     <!-- 1. STYLE : Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. DEPENDANCES : UTILISATION DE CLOUDFLARE (Plus fiable) -->
-    
-    <!-- React & React DOM -->
+    <!-- 2. DEPENDANCES : CLOUDFLARE (Stable) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- Prop-types (Indispensable pour Recharts) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
-    
-    <!-- Recharts (Version stable sur cdnjs) -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.3/Recharts.min.js"></script>
-
-    <!-- Babel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
 
     <style>
@@ -32,19 +24,12 @@
 <body class="bg-slate-50 text-gray-800">
 
     <div id="root" class="flex flex-col items-center justify-center min-h-screen">
-        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement de l'application...</div>
+        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement...</div>
     </div>
 
     <script type="text/babel">
-        // --- Vérification de sécurité ---
-        if (!window.React || !window.Recharts) {
-            document.getElementById('root').innerHTML = `
-                <div class='text-red-600 p-8 text-center bg-white rounded shadow'>
-                    <h2 class='text-xl font-bold mb-2'>Erreur de chargement</h2>
-                    <p>Les bibliothèques n'ont pas pu charger. Vérifiez que vous n'avez pas de bloqueur de publicité actif.</p>
-                </div>`;
-            throw new Error("Librairies manquantes");
-        }
+        // Sécurité
+        if (!window.React || !window.Recharts) { throw new Error("Librairies manquantes"); }
 
         const { useState, useEffect } = React;
         const { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
@@ -91,37 +76,68 @@
             };
 
             const calculate = () => {
-                const alim = 
-                    (parseFloat(formData.repasOmnivore)||0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365 +
-                    (parseFloat(formData.repasVegetarien)||0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365 +
-                    (parseFloat(formData.repasVegan)||0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
+                // 1. Calculs Détaillés (Ligne par ligne)
+                
+                // Alimentation
+                const vOmni = (parseFloat(formData.repasOmnivore)||0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365;
+                const vVege = (parseFloat(formData.repasVegetarien)||0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365;
+                const vVegan = (parseFloat(formData.repasVegan)||0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
+                const totalAlim = vOmni + vVege + vVegan;
 
-                const transp = 
-                    convertToAnnual(formData.voiture, 'voiture') * EMISSION_FACTORS.transport.voiture.factor +
-                    convertToAnnual(formData.bus, 'bus') * EMISSION_FACTORS.transport.bus.factor +
-                    convertToAnnual(formData.train, 'train') * EMISSION_FACTORS.transport.train.factor +
-                    convertToAnnual(formData.avion, 'avion') * EMISSION_FACTORS.transport.avion.factor;
+                // Transport
+                const vVoit = convertToAnnual(formData.voiture, 'voiture') * EMISSION_FACTORS.transport.voiture.factor;
+                const vBus = convertToAnnual(formData.bus, 'bus') * EMISSION_FACTORS.transport.bus.factor;
+                const vTrain = convertToAnnual(formData.train, 'train') * EMISSION_FACTORS.transport.train.factor;
+                const vAvion = convertToAnnual(formData.avion, 'avion') * EMISSION_FACTORS.transport.avion.factor;
+                const totalTrans = vVoit + vBus + vTrain + vAvion;
 
-                const log = 
-                    (parseFloat(formData.electricite)||0) * EMISSION_FACTORS.logement.electricite.factor * 12 +
-                    (parseFloat(formData.gaz)||0) * EMISSION_FACTORS.logement.gaz.factor * 12 +
-                    (parseFloat(formData.fioul)||0) * EMISSION_FACTORS.logement.fioul.factor * 12 +
-                    (parseFloat(formData.bois)||0) * EMISSION_FACTORS.logement.bois.factor * 12;
+                // Logement
+                const vElec = (parseFloat(formData.electricite)||0) * EMISSION_FACTORS.logement.electricite.factor * 12;
+                const vGaz = (parseFloat(formData.gaz)||0) * EMISSION_FACTORS.logement.gaz.factor * 12;
+                const vFioul = (parseFloat(formData.fioul)||0) * EMISSION_FACTORS.logement.fioul.factor * 12;
+                const vBois = (parseFloat(formData.bois)||0) * EMISSION_FACTORS.logement.bois.factor * 12;
+                const totalLog = vElec + vGaz + vFioul + vBois;
 
-                const num = 
-                    (parseFloat(formData.donnees)||0) * EMISSION_FACTORS.numerique.donnees.factor * 12 +
-                    (parseFloat(formData.streaming)||0) * EMISSION_FACTORS.numerique.streaming.factor * 365;
+                // Numérique
+                const vDonnees = (parseFloat(formData.donnees)||0) * EMISSION_FACTORS.numerique.donnees.factor * 12;
+                const vStream = (parseFloat(formData.streaming)||0) * EMISSION_FACTORS.numerique.streaming.factor * 365;
+                const totalNum = vDonnees + vStream;
 
-                const total = alim + transp + log + num;
+                const grandTotal = totalAlim + totalTrans + totalLog + totalNum;
 
+                // 2. Construction de l'objet résultat complet
                 const res = {
-                    alimentation: Math.round(alim),
-                    transport: Math.round(transp),
-                    logement: Math.round(log),
-                    numerique: Math.round(num),
-                    total: Math.round(total),
-                    tonnes: (total/1000).toFixed(2),
-                    date: new Date().toISOString()
+                    alimentation: Math.round(totalAlim),
+                    transport: Math.round(totalTrans),
+                    logement: Math.round(totalLog),
+                    numerique: Math.round(totalNum),
+                    total: Math.round(grandTotal),
+                    tonnes: (grandTotal/1000).toFixed(2),
+                    date: new Date().toISOString(),
+                    // Nouveau : Détail pour l'affichage tableau
+                    details: [
+                        { category: "Alimentation", icon: <IconLeaf />, color: "text-green-600", items: [
+                            { label: "Repas Omnivore", val: vOmni },
+                            { label: "Repas Végétarien", val: vVege },
+                            { label: "Repas Végan", val: vVegan }
+                        ]},
+                        { category: "Transport", icon: <IconCar />, color: "text-blue-600", items: [
+                            { label: "Voiture", val: vVoit },
+                            { label: "Bus", val: vBus },
+                            { label: "Train", val: vTrain },
+                            { label: "Avion", val: vAvion }
+                        ]},
+                        { category: "Logement", icon: <IconHome />, color: "text-orange-600", items: [
+                            { label: "Électricité", val: vElec },
+                            { label: "Gaz", val: vGaz },
+                            { label: "Fioul", val: vFioul },
+                            { label: "Bois", val: vBois }
+                        ]},
+                        { category: "Numérique", icon: <IconWifi />, color: "text-purple-600", items: [
+                            { label: "Données Mobiles/Wifi", val: vDonnees },
+                            { label: "Streaming", val: vStream }
+                        ]}
+                    ]
                 };
 
                 setResults(res);
@@ -143,7 +159,7 @@
             ] : [];
 
             return (
-                <div className="max-w-5xl mx-auto p-4 md:p-8 fade-in">
+                <div className="max-w-6xl mx-auto p-4 md:p-8 fade-in">
                     <div className="text-center mb-10">
                         <div className="flex justify-center items-center text-green-600 mb-2">
                             <IconLeaf />
@@ -152,6 +168,7 @@
                         <p className="text-gray-600">Estimez votre impact annuel (kg CO₂e)</p>
                     </div>
 
+                    {/* FORMULAIRES */}
                     <div className="grid md:grid-cols-2 gap-6 mb-8">
                         {/* ALIM */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
@@ -214,7 +231,8 @@
                     </div>
 
                     {results && (
-                        <div className="fade-in space-y-6 pb-12">
+                        <div className="fade-in space-y-8 pb-12">
+                            {/* SCORE PRINCIPAL */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
                                 <h2 className="text-2xl font-bold text-gray-700">Résultat Annuel</h2>
                                 <div className="text-6xl font-extrabold text-green-600 my-2">{results.tonnes}</div>
@@ -222,6 +240,7 @@
                                 <div className="mt-4 inline-block bg-gray-100 px-4 py-2 rounded-full text-sm">Moyenne Française : <strong>{MOYENNE_FRANCAISE.total/1000} tonnes</strong></div>
                             </div>
 
+                            {/* GRAPHIQUES */}
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="bg-white p-4 rounded-xl shadow-lg h-80">
                                     <h3 className="text-center font-bold mb-2">Répartition</h3>
@@ -230,7 +249,7 @@
                                             <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
                                                 {pieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                             </Pie>
-                                            <Tooltip />
+                                            <Tooltip formatter={(val) => Math.round(val) + " kg"} />
                                             <Legend />
                                         </PieChart>
                                     </ResponsiveContainer>
@@ -250,6 +269,38 @@
                                     </div>
                                 )}
                             </div>
+
+                            {/* TABLEAU DE DÉTAILS - NOUVEAU ! */}
+                            <div className="bg-white p-6 rounded-xl shadow-lg">
+                                <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Détail des émissions (kg CO₂e / an)</h3>
+                                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {results.details.map((cat, idx) => (
+                                        <div key={idx} className="border border-gray-100 rounded-xl p-4 bg-gray-50 hover:shadow-md transition">
+                                            <div className={`flex items-center mb-3 pb-2 border-b border-gray-200 ${cat.color}`}>
+                                                {cat.icon}
+                                                <h4 className="font-bold ml-2 text-lg">{cat.category}</h4>
+                                            </div>
+                                            <ul className="space-y-3">
+                                                {cat.items.map((item, i) => (
+                                                    <li key={i} className="flex justify-between items-center text-sm">
+                                                        <span className="text-gray-600">{item.label}</span>
+                                                        <span className="font-semibold bg-white px-2 py-1 rounded shadow-sm">
+                                                            {Math.round(item.val).toLocaleString()}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                                <li className="flex justify-between items-center pt-3 mt-2 border-t border-gray-200 font-bold text-gray-800">
+                                                    <span>Total</span>
+                                                    <span>
+                                                        {Math.round(cat.items.reduce((acc, curr) => acc + curr.val, 0)).toLocaleString()} kg
+                                                    </span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                         </div>
                     )}
                 </div>
