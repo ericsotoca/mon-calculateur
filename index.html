@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone Détaillé</title>
+    <title>Calculateur Carbone Complet</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧮</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -16,7 +16,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 
-    <!-- CHARGEMENT ROBUSTE (CDNJS) -->
+    <!-- CHARGEMENT LIBRAIRIES -->
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
@@ -28,7 +28,7 @@
     <div id="root" class="flex flex-col items-center justify-center min-h-screen">
         <div class="flex flex-col items-center space-y-4 p-6 bg-white rounded-xl shadow-lg" id="loading-screen">
             <div class="loader"></div>
-            <div class="text-lg font-semibold text-gray-600">Chargement du calculateur...</div>
+            <div class="text-lg font-semibold text-gray-600">Chargement...</div>
         </div>
     </div>
 
@@ -37,52 +37,50 @@
         const RechartsLib = window.Recharts || null;
         const { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = RechartsLib || {};
 
-        /* --- ICONES --- */
+        /* --- ICONS --- */
         const IconLeaf = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.77 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>;
         const IconCar = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>;
         const IconHome = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
         const IconWifi = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>;
-        const IconCalc = () => <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 7h6m-6 4h6m-6 4h6M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>;
+        const IconBulb = () => <svg className="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
         const IconReset = () => <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
 
-        /* --- FACTEURS D'ÉMISSION (kg CO2e / unité) --- */
+        /* --- CONSTANTES --- */
         const EMISSION_FACTORS = {
             alimentation: { 
-                omnivore: 3.0,    // Repas avec viande rouge/fromage
-                vegetarien: 1.7,  // Repas oeufs/lait
-                vegan: 0.9,       // Repas végétalien (correction facteur plus réaliste ADEME)
-                jeune: 0.0 
+                omnivore: { val: 3.0, unit: 'kg CO2e/repas', desc: 'Viande rouge/blanche, poisson' },
+                vegetarien: { val: 1.7, unit: 'kg CO2e/repas', desc: 'Produits laitiers, œufs, sans chair animale' },
+                vegan: { val: 0.9, unit: 'kg CO2e/repas', desc: '100% Végétal' },
+                jeune: { val: 0.0, unit: 'kg CO2e/repas', desc: 'Aucune consommation' }
             },
             transport: { 
-                voiture: 0.192,   // Moyenne thermique
-                bus: 0.105, 
-                train: 0.041,     // TGV + TER mix
-                // Avion: Facteurs différenciés (incluant trainée de condensation approx + radiative forcing)
-                avionCourt: 0.258, // < 1000km (Décollage coûteux)
-                avionMoyen: 0.187, // 1000-3500km
-                avionLong: 0.152   // > 3500km
+                voiture: { val: 0.192, unit: 'kg CO2e/km', desc: 'Moyenne parc thermique' },
+                bus: { val: 0.105, unit: 'kg CO2e/km', desc: 'Moyenne urbain/régional' },
+                train: { val: 0.041, unit: 'kg CO2e/km', desc: 'Mix TGV/TER France' },
+                avionCourt: { val: 0.258, unit: 'kg CO2e/km', desc: 'Vol < 1000 km' },
+                avionMoyen: { val: 0.187, unit: 'kg CO2e/km', desc: 'Vol 1000-3500 km' },
+                avionLong: { val: 0.152, unit: 'kg CO2e/km', desc: 'Vol > 3500 km' }
             },
             logement: { 
-                electricite: 0.053, // Mix FR
-                gaz: 0.206, 
-                fioul: 0.324,       // Correction fioul (plus élevé)
-                bois: 0.030 
+                electricite: { val: 0.053, unit: 'kg CO2e/kWh', desc: 'Mix électrique français' },
+                gaz: { val: 0.206, unit: 'kg CO2e/kWh', desc: 'Chauffage gaz naturel' },
+                fioul: { val: 0.324, unit: 'kg CO2e/kWh', desc: 'Chauffage fioul domestique' },
+                bois: { val: 0.030, unit: 'kg CO2e/kWh', desc: 'Granulés/Bûches' }
             },
             numerique: { 
-                donnees: 0.06,    // Par Go (réseau + data center)
-                streaming: 0.06   // Par heure (device + réseau)
+                donnees: { val: 0.06, unit: 'kg CO2e/Go', desc: 'Réseau + Data Center' },
+                streaming: { val: 0.06, unit: 'kg CO2e/h', desc: 'Visionnage HD' }
             }
         };
         
         const MOY_FR = 9400;
         const COLORS = ['#10b981', '#3b82f6', '#f97316', '#a855f7'];
+        const TRANSPORT_VIEW_MULT = { semaine: 52, mois: 12, an: 1 };
 
         const VALEURS_MOYENNES = {
             repasOmnivore: '8', repasVegetarien: '4', repasVegan: '2', repasJeune: '0',
-            voiture: '7500', bus: '0', train: '2000',
-            avionCourt: '0', avionMoyen: '0', avionLong: '0',
-            electricite: '200', gaz: '100', fioul: '0', bois: '0',
-            donnees: '50', streaming: '2'
+            voiture: '7500', bus: '0', train: '2000', avionCourt: '0', avionMoyen: '0', avionLong: '0',
+            electricite: '200', gaz: '100', fioul: '0', bois: '0', donnees: '50', streaming: '2'
         };
 
         function CarbonCalculator() {
@@ -92,85 +90,107 @@
                 try { return { ...VALEURS_MOYENNES, ...JSON.parse(localStorage.getItem('carbonForm')) }; } catch { return VALEURS_MOYENNES; }
             });
             const [results, setResults] = useState(null);
-            const [detailRows, setDetailRows] = useState([]); // Pour stocker les calculs
+            const [detailRows, setDetailRows] = useState([]);
+            const [advice, setAdvice] = useState([]);
             const [history, setHistory] = useState(() => {
                 try { return JSON.parse(localStorage.getItem('carbonHistory')) || []; } catch { return []; }
             });
             const [transportView, setTransportView] = useState('an');
+            const [showCoefs, setShowCoefs] = useState(false);
 
             useEffect(() => { localStorage.setItem('carbonForm', JSON.stringify(formData)); }, [formData]);
             const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
-            
-            // Conversion transport (inputs utilisateur) vers annuel
-            const toAnnual = v => { 
-                const val = parseFloat(v) || 0; 
-                return transportView === 'semaine' ? val * 52 : transportView === 'mois' ? val * 12 : val; 
+
+            // --- FONCTION DE CONVERSION INSTANTANEE ---
+            const switchTransportView = (newView) => {
+                const oldMult = TRANSPORT_VIEW_MULT[transportView];
+                const newMult = TRANSPORT_VIEW_MULT[newView];
+                const ratio = oldMult / newMult; // ex: semaine(52) -> an(1) = 52.  an(1) -> semaine(52) = 1/52.
+                
+                const newFormData = { ...formData };
+                ['voiture', 'bus', 'train'].forEach(k => {
+                    const val = parseFloat(formData[k]);
+                    if (!isNaN(val) && val > 0) {
+                        newFormData[k] = Math.round(val * ratio);
+                    }
+                });
+                setFormData(newFormData);
+                setTransportView(newView);
             };
+
+            // Helper pour le calcul annuel (pour avion et autres fixes)
+            const getTransportAnnual = (val, view) => {
+                const v = parseFloat(val) || 0;
+                return v * TRANSPORT_VIEW_MULT[view];
+            }
 
             const calculate = () => {
                 let total = 0;
                 let breakdown = [];
                 let catTotals = { alimentation: 0, transport: 0, logement: 0, numerique: 0 };
 
-                // Helper pour ajouter une ligne de calcul
-                const addRow = (cat, label, input, freqLabel, freqMult, factor, unit) => {
+                const addRow = (cat, label, input, freqMult, factorData, unit) => {
                     const val = parseFloat(input) || 0;
                     if (val > 0 || label === 'Jeûne') {
-                        const subTotal = val * freqMult * factor;
+                        const subTotal = val * freqMult * factorData.val;
                         total += subTotal;
                         catTotals[cat] += subTotal;
-                        breakdown.push({
-                            cat, label,
-                            formula: `${val} ${unit} × ${freqLabel} × ${factor} kg`,
-                            subTotal: Math.round(subTotal)
-                        });
+                        breakdown.push({ cat, label, formula: `${val} ${unit} × ${freqMult} × ${factorData.val}`, subTotal: Math.round(subTotal) });
                     }
                 };
 
-                // --- 1. ALIMENTATION (Calcul par repas * 52 semaines) ---
-                addRow('alimentation', 'Omnivore', formData.repasOmnivore, '52 sem', 52, EMISSION_FACTORS.alimentation.omnivore, 'repas');
-                addRow('alimentation', 'Végétarien', formData.repasVegetarien, '52 sem', 52, EMISSION_FACTORS.alimentation.vegetarien, 'repas');
-                addRow('alimentation', 'Végétalien', formData.repasVegan, '52 sem', 52, EMISSION_FACTORS.alimentation.vegan, 'repas');
-                addRow('alimentation', 'Jeûne', formData.repasJeune, '52 sem', 52, EMISSION_FACTORS.alimentation.jeune, 'repas');
-
-                // --- 2. TRANSPORT (Distance convertie en annuel) ---
-                const tMult = transportView === 'semaine' ? 52 : transportView === 'mois' ? 12 : 1;
-                const tUnit = transportView === 'an' ? 'km/an' : (transportView === 'mois' ? 'km/mois × 12' : 'km/sem × 52');
+                // Alimentation
+                addRow('alimentation', 'Omnivore', formData.repasOmnivore, 52, EMISSION_FACTORS.alimentation.omnivore, 'repas');
+                addRow('alimentation', 'Végétarien', formData.repasVegetarien, 52, EMISSION_FACTORS.alimentation.vegetarien, 'repas');
+                addRow('alimentation', 'Végétalien', formData.repasVegan, 52, EMISSION_FACTORS.alimentation.vegan, 'repas');
                 
-                addRow('transport', 'Voiture', formData.voiture, tUnit, tMult, EMISSION_FACTORS.transport.voiture, 'km');
-                addRow('transport', 'Bus', formData.bus, tUnit, tMult, EMISSION_FACTORS.transport.bus, 'km');
-                addRow('transport', 'Train', formData.train, tUnit, tMult, EMISSION_FACTORS.transport.train, 'km');
+                // Transport (Gestion de la vue actuelle)
+                // Les inputs voiture/bus/train sont dans l'unité "transportView". On doit les ramener à l'année.
+                const tMult = TRANSPORT_VIEW_MULT[transportView];
+                const tUnit = transportView;
                 
-                // Avion : Toujours annuel, inputs séparés
-                addRow('transport', 'Avion Court (<1000km)', formData.avionCourt, 'an', 1, EMISSION_FACTORS.transport.avionCourt, 'km');
-                addRow('transport', 'Avion Moyen (1-3500km)', formData.avionMoyen, 'an', 1, EMISSION_FACTORS.transport.avionMoyen, 'km');
-                addRow('transport', 'Avion Long (>3500km)', formData.avionLong, 'an', 1, EMISSION_FACTORS.transport.avionLong, 'km');
+                addRow('transport', 'Voiture', formData.voiture, tMult, EMISSION_FACTORS.transport.voiture, tUnit);
+                addRow('transport', 'Bus', formData.bus, tMult, EMISSION_FACTORS.transport.bus, tUnit);
+                addRow('transport', 'Train', formData.train, tMult, EMISSION_FACTORS.transport.train, tUnit);
+                
+                // Avion (Toujours annuel)
+                addRow('transport', 'Avion Court', formData.avionCourt, 1, EMISSION_FACTORS.transport.avionCourt, 'km');
+                addRow('transport', 'Avion Moyen', formData.avionMoyen, 1, EMISSION_FACTORS.transport.avionMoyen, 'km');
+                addRow('transport', 'Avion Long', formData.avionLong, 1, EMISSION_FACTORS.transport.avionLong, 'km');
 
-                // --- 3. LOGEMENT (Mensuel * 12) ---
-                addRow('logement', 'Électricité', formData.electricite, '12 mois', 12, EMISSION_FACTORS.logement.electricite, 'kWh');
-                addRow('logement', 'Gaz', formData.gaz, '12 mois', 12, EMISSION_FACTORS.logement.gaz, 'kWh');
-                addRow('logement', 'Fioul', formData.fioul, '12 mois', 12, EMISSION_FACTORS.logement.fioul, 'kWh');
-                addRow('logement', 'Bois', formData.bois, '12 mois', 12, EMISSION_FACTORS.logement.bois, 'kWh');
+                // Logement & Numérique
+                addRow('logement', 'Électricité', formData.electricite, 12, EMISSION_FACTORS.logement.electricite, 'kWh');
+                addRow('logement', 'Gaz', formData.gaz, 12, EMISSION_FACTORS.logement.gaz, 'kWh');
+                addRow('logement', 'Fioul', formData.fioul, 12, EMISSION_FACTORS.logement.fioul, 'kWh');
+                addRow('logement', 'Bois', formData.bois, 12, EMISSION_FACTORS.logement.bois, 'kWh');
+                addRow('numerique', 'Données', formData.donnees, 12, EMISSION_FACTORS.numerique.donnees, 'Go');
+                addRow('numerique', 'Streaming', formData.streaming, 365, EMISSION_FACTORS.numerique.streaming, 'h');
 
-                // --- 4. NUMERIQUE ---
-                addRow('numerique', 'Données 4G/Fibre', formData.donnees, '12 mois', 12, EMISSION_FACTORS.numerique.donnees, 'Go');
-                addRow('numerique', 'Streaming', formData.streaming, '365 jours', 365, EMISSION_FACTORS.numerique.streaming, 'h');
+                // --- GENERATION DES CONSEILS ---
+                let tips = [];
+                // Conseil Alimentation
+                const partOmni = (parseFloat(formData.repasOmnivore)||0);
+                if (partOmni > 4) tips.push({ cat: 'Alimentation', text: "Remplacer 2 repas de viande rouge par semaine par du poulet ou du végétal (-400 kg CO2e/an)." });
+                else if (partOmni > 0) tips.push({ cat: 'Alimentation', text: "Tester une journée 100% végétarienne par semaine." });
+                
+                // Conseil Transport
+                const carImpact = (parseFloat(formData.voiture)||0) * tMult * EMISSION_FACTORS.transport.voiture.val;
+                const planeImpact = ((parseFloat(formData.avionCourt)||0) * EMISSION_FACTORS.transport.avionCourt.val) + ((parseFloat(formData.avionLong)||0) * EMISSION_FACTORS.transport.avionLong.val);
+                
+                if (carImpact > 2000) tips.push({ cat: 'Transport', text: "Covoiturer sur les trajets domicile-travail diviserait votre impact par 2." });
+                if (planeImpact > 1000) tips.push({ cat: 'Transport', text: "Privilégier le train pour l'Europe peut diviser l'impact du trajet par 40." });
 
-                // Résultats finaux
-                const res = {
-                    ...catTotals,
-                    total: Math.round(total),
-                    tonnes: (total / 1000).toFixed(2),
-                    date: new Date().toISOString()
-                };
+                // Conseil Logement
+                const heatImpact = ((parseFloat(formData.gaz)||0)*EMISSION_FACTORS.logement.gaz.val + (parseFloat(formData.fioul)||0)*EMISSION_FACTORS.logement.fioul.val) * 12;
+                if (heatImpact > 2000) tips.push({ cat: 'Logement', text: "Baisser le chauffage de 1°C réduit la consommation de 7%." });
+                
+                setAdvice(tips);
 
+                const res = { ...catTotals, total: Math.round(total), tonnes: (total / 1000).toFixed(2), date: new Date().toISOString() };
                 setResults(res);
                 setDetailRows(breakdown);
-                
-                const h = [...history, res].slice(-10);
-                setHistory(h);
-                localStorage.setItem('carbonHistory', JSON.stringify(h));
-                
+                setHistory([...history, res].slice(-10));
+                localStorage.setItem('carbonHistory', JSON.stringify([...history, res].slice(-10)));
                 setTimeout(() => { document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' }); }, 100);
             };
 
@@ -180,26 +200,26 @@
                 { name: 'Alim', value: results.alimentation }, { name: 'Trans', value: results.transport }, 
                 { name: 'Log', value: results.logement }, { name: 'Num', value: results.numerique }
             ] : [];
-            
+
             const repasTotal = (parseFloat(formData.repasOmnivore)||0) + (parseFloat(formData.repasVegetarien)||0) + (parseFloat(formData.repasVegan)||0) + (parseFloat(formData.repasJeune)||0);
 
             return (
                 <div className="max-w-5xl mx-auto p-4 md:p-8 fade-in pb-20">
                     <header className="text-center mb-10">
                         <div className="flex justify-center items-center text-green-600 mb-2"><IconLeaf /><h1 className="text-3xl md:text-4xl font-bold ml-2">Calculateur Carbone</h1></div>
-                        <p className="text-slate-500">Estimation détaillée avec preuves de calcul</p>
+                        <p className="text-slate-500">Estimez votre impact et découvrez comment agir</p>
                     </header>
 
                     <div className="grid md:grid-cols-2 gap-6 mb-8">
-                        {/* --- ALIMENTATION --- */}
+                        {/* ALIMENTATION */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-green-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconLeaf /><span className="ml-2">Alimentation</span></h2>
                             <p className="text-xs text-slate-500 mb-4">Repas par semaine (Total : <span className="font-bold text-green-600">{repasTotal}</span>)</p>
                             <div className="space-y-3">
                                 {[
-                                    { k: 'repasOmnivore', l: 'Omnivore (Viande/Fromage)' }, 
-                                    { k: 'repasVegetarien', l: 'Végétarien (Oeuf/Lait)' }, 
-                                    { k: 'repasVegan', l: 'Végétalien (Végétal)' },
+                                    { k: 'repasOmnivore', l: 'Omnivore (Viande/Poisson)' }, 
+                                    { k: 'repasVegetarien', l: 'Végétarien (Oeuf/Fromage)' }, 
+                                    { k: 'repasVegan', l: 'Végétalien (100% Végétal)' },
                                     { k: 'repasJeune', l: 'Jeûne / Sauté' }
                                 ].map(x => (
                                     <div key={x.k} className="flex justify-between items-center">
@@ -210,29 +230,27 @@
                             </div>
                         </div>
 
-                        {/* --- TRANSPORT --- */}
+                        {/* TRANSPORT */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-blue-500">
                             <div className="flex justify-between items-center mb-2"><h2 className="text-lg font-bold flex items-center text-slate-700"><IconCar /><span className="ml-2">Transport</span></h2>
-                            <div className="bg-slate-100 p-1 rounded flex text-xs">{['semaine', 'mois', 'an'].map(v => <button key={v} onClick={() => setTransportView(v)} className={`px-2 py-1 rounded capitalize ${transportView === v ? 'bg-white shadow' : ''}`}>{v}</button>)}</div></div>
+                            <div className="bg-slate-100 p-1 rounded flex text-xs">{['semaine', 'mois', 'an'].map(v => <button key={v} onClick={() => switchTransportView(v)} className={`px-2 py-1 rounded capitalize ${transportView === v ? 'bg-white shadow text-blue-600 font-bold' : 'text-slate-500'}`}>{v}</button>)}</div></div>
                             
-                            {/* Terrestre */}
-                            <p className="text-xs text-slate-500 mb-2 mt-1 font-bold">Terrestre (distance selon sélection)</p>
+                            <p className="text-xs text-slate-500 mb-2 mt-1 font-bold">Terrestre (s'adapte à la vue : {transportView})</p>
                             <div className="space-y-2 mb-4">
                                 {['voiture', 'bus', 'train'].map(m => (
                                     <div key={m} className="flex justify-between items-center"><label className="capitalize text-sm text-slate-600 w-24">{m}</label><input type="number" min="0" name={m} value={formData[m]} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" /></div>
                                 ))}
                             </div>
 
-                            {/* Aérien (Nouveau) */}
-                            <p className="text-xs text-slate-500 mb-2 font-bold border-t pt-2">Aérien (km / an)</p>
+                            <p className="text-xs text-slate-500 mb-2 font-bold border-t pt-2">Aérien (km/an fixe)</p>
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Court (&lt;1000km)</label><input type="number" min="0" name="avionCourt" value={formData.avionCourt} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: Paris-Nice" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Court (&lt;1000km)</label><input type="number" min="0" name="avionCourt" value={formData.avionCourt} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: France" /></div>
                                 <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Moyen (1-3.5k)</label><input type="number" min="0" name="avionMoyen" value={formData.avionMoyen} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: Europe" /></div>
-                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Long (&gt;3500km)</label><input type="number" min="0" name="avionLong" value={formData.avionLong} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: International" /></div>
+                                <div className="flex justify-between items-center"><label className="text-sm text-slate-600 w-32">Long (&gt;3500km)</label><input type="number" min="0" name="avionLong" value={formData.avionLong} onChange={handleChange} className="w-full p-2 bg-slate-50 border rounded-lg" placeholder="ex: Monde" /></div>
                             </div>
                         </div>
 
-                        {/* --- LOGEMENT --- */}
+                        {/* LOGEMENT */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-orange-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconHome /><span className="ml-2">Logement</span></h2>
                             <p className="text-xs text-slate-500 mb-4">Conso. mensuelle (kWh)</p>
@@ -241,7 +259,7 @@
                             </div>
                         </div>
 
-                        {/* --- NUMERIQUE --- */}
+                        {/* NUMERIQUE */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-t-purple-500">
                             <h2 className="text-lg font-bold mb-2 flex items-center text-slate-700"><IconWifi /><span className="ml-2">Numérique</span></h2>
                             <div className="space-y-4">
@@ -252,20 +270,40 @@
                     </div>
 
                     <div className="text-center mb-12 space-y-4">
-                        <button onClick={calculate} className="bg-slate-800 text-white px-10 py-3 rounded-xl text-lg font-bold hover:bg-slate-900 transition shadow-lg hover:scale-105 transform">Calculer & Voir Détails</button>
+                        <button onClick={calculate} className="bg-slate-800 text-white px-10 py-3 rounded-xl text-lg font-bold hover:bg-slate-900 transition shadow-lg hover:scale-105 transform">Calculer</button>
                         <div className="flex justify-center gap-6"><button onClick={reset} className="text-slate-400 text-sm hover:text-slate-700 flex items-center"><IconReset /> Réinitialiser</button></div>
                     </div>
 
                     {results && (
                         <div id="results-section" className="fade-in space-y-8 pb-12">
-                            {/* RESULTAT GLOBAL */}
-                            <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100 text-center relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 via-blue-500 to-purple-500"></div>
-                                <div className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600">{results.tonnes}</div>
-                                <div className="text-xl font-bold text-slate-400 mb-4">tonnes CO₂e / an</div>
-                                <div className="inline-block bg-slate-100 px-4 py-2 rounded-full text-sm">Moyenne FR : <strong>{(MOY_FR/1000).toFixed(1)} t</strong></div>
+                            
+                            {/* SCORE & CONSEILS */}
+                            <div className="grid lg:grid-cols-2 gap-8">
+                                <div className="bg-white p-8 rounded-3xl shadow-lg border border-slate-100 text-center relative overflow-hidden flex flex-col justify-center">
+                                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 via-blue-500 to-purple-500"></div>
+                                    <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600">{results.tonnes}</div>
+                                    <div className="text-xl font-bold text-slate-400 mb-4">tonnes CO₂e / an</div>
+                                    <div className="inline-block bg-slate-100 px-4 py-2 rounded-full text-sm mx-auto">Moyenne FR : <strong>{(MOY_FR/1000).toFixed(1)} t</strong></div>
+                                </div>
+
+                                <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                                    <div className="flex items-center mb-4 text-blue-800"><IconBulb /><h3 className="text-xl font-bold">Conseils Éco Prioritaires</h3></div>
+                                    {advice.length > 0 ? (
+                                        <ul className="space-y-3">
+                                            {advice.map((tip, i) => (
+                                                <li key={i} className="flex items-start bg-white p-3 rounded-xl shadow-sm">
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded mr-3 uppercase ${tip.cat === 'Alimentation' ? 'bg-green-100 text-green-700' : tip.cat === 'Transport' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{tip.cat}</span>
+                                                    <span className="text-sm text-slate-700">{tip.text}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-sm text-slate-600 italic">Votre empreinte semble déjà très optimisée. Continuez ainsi !</p>
+                                    )}
+                                </div>
                             </div>
 
+                            {/* GRAPHIQUES */}
                             {RechartsLib && (
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border h-80">
@@ -281,47 +319,60 @@
                                 </div>
                             )}
 
-                            {/* TABLEAU DE PREUVES DE CALCULS (NOUVEAU) */}
+                            {/* TABLEAU DE DÉTAIL (Ticket de caisse) */}
                             <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
-                                <div className="flex items-center justify-center mb-6 text-slate-700">
-                                    <IconCalc />
-                                    <h3 className="text-2xl font-bold">Détails et Calculs</h3>
-                                </div>
-                                
+                                <h3 className="text-2xl font-bold mb-6 text-center text-slate-700">Détail du calcul</h3>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-slate-50 text-slate-500 uppercase font-bold">
-                                            <tr>
-                                                <th className="px-4 py-3 rounded-tl-lg">Catégorie</th>
-                                                <th className="px-4 py-3">Poste</th>
-                                                <th className="px-4 py-3">Formule (Qté × Fréq. × Facteur)</th>
-                                                <th className="px-4 py-3 text-right rounded-tr-lg">Total (kg)</th>
-                                            </tr>
+                                            <tr><th className="px-4 py-3 rounded-tl-lg">Poste</th><th className="px-4 py-3">Calcul</th><th className="px-4 py-3 text-right rounded-tr-lg">Total (kg)</th></tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {detailRows.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                                    <td className="px-4 py-3 font-semibold capitalize text-slate-600">{row.cat}</td>
-                                                    <td className="px-4 py-3">{row.label}</td>
-                                                    <td className="px-4 py-3 font-mono text-slate-500 text-xs md:text-sm">{row.formula}</td>
-                                                    <td className="px-4 py-3 text-right font-bold text-slate-700">{row.subTotal.toLocaleString()}</td>
-                                                </tr>
+                                                <tr key={idx} className="hover:bg-slate-50"><td className="px-4 py-3 font-semibold text-slate-600">{row.label}</td><td className="px-4 py-3 font-mono text-slate-500 text-xs">{row.formula}</td><td className="px-4 py-3 text-right font-bold">{row.subTotal.toLocaleString()}</td></tr>
                                             ))}
                                         </tbody>
-                                        <tfoot className="bg-slate-50 font-bold text-slate-800">
-                                            <tr>
-                                                <td colSpan="3" className="px-4 py-4 text-right uppercase">Total Annuel</td>
-                                                <td className="px-4 py-4 text-right text-lg text-blue-600">{results.total.toLocaleString()} kg</td>
-                                            </tr>
-                                        </tfoot>
+                                        <tfoot className="bg-slate-50 font-bold text-slate-800"><tr><td colSpan="2" className="px-4 py-4 text-right uppercase">Total</td><td className="px-4 py-4 text-right text-lg text-blue-600">{results.total.toLocaleString()} kg</td></tr></tfoot>
                                     </table>
                                 </div>
-                                <p className="mt-4 text-xs text-slate-400 text-center italic">
-                                    Facteurs d'émission basés sur les moyennes ADEME (Base Empreinte). Les facteurs avions incluent une estimation des effets hors CO2 (trainées).
-                                </p>
                             </div>
                         </div>
                     )}
+                    
+                    {/* TABLEAU DES COEFFICIENTS (Toujours visible en bas) */}
+                    <div className="mt-16 border-t border-slate-200 pt-8">
+                        <button onClick={() => setShowCoefs(!showCoefs)} className="flex items-center justify-center w-full text-slate-500 hover:text-slate-800 text-sm font-semibold transition">
+                            {showCoefs ? 'Masquer' : 'Voir'} le tableau complet des coefficients utilisés (Facteurs ADEME)
+                            <span className={`ml-2 transform transition ${showCoefs ? 'rotate-180' : ''}`}>▼</span>
+                        </button>
+                        
+                        {showCoefs && (
+                            <div className="mt-6 overflow-x-auto bg-white rounded-xl shadow p-6 fade-in">
+                                <table className="w-full text-sm text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b-2 border-slate-100 text-slate-500">
+                                            <th className="py-2 font-bold">Catégorie</th>
+                                            <th className="py-2 font-bold">Élément</th>
+                                            <th className="py-2 font-bold">Valeur</th>
+                                            <th className="py-2 font-bold">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {Object.entries(EMISSION_FACTORS).map(([cat, items]) => 
+                                            Object.entries(items).map(([key, data]) => (
+                                                <tr key={key} className="hover:bg-slate-50">
+                                                    <td className="py-2 capitalize font-semibold text-slate-400">{cat}</td>
+                                                    <td className="py-2 font-medium text-slate-700">{key}</td>
+                                                    <td className="py-2 font-mono text-blue-600">{data.val} {data.unit}</td>
+                                                    <td className="py-2 text-slate-500 italic">{data.desc}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         }
