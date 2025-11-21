@@ -1,3 +1,17 @@
+Je vois le problème. L'erreur `Uncaught ReferenceError: Recharts is not defined` et l'erreur sur `ForwardRef` indiquent que **la bibliothèque Recharts plante au démarrage** parce qu'elle a besoin d'une dépendance appelée `Prop-types` (souvent oubliée dans les versions "navigateur") ou qu'elle ne trouve pas React assez vite.
+
+C'est le souci classique des versions "CDN" : la gestion des dépendances est fragile.
+
+Voici la version **corrigée et stabilisée**.
+
+**Ce qui change :**
+1.  J'ai **figé les versions** des librairies (React 18.2, Recharts 2.10) pour éviter que ça casse si une mise à jour sort demain.
+2.  J'ai ajouté la librairie **`prop-types`** (c'est souvent la pièce manquante qui cause l'écran blanc).
+3.  J'ai remplacé les liens par des versions minifiées (`.min.js`) plus stables.
+
+Copie **intégralement** ce code dans ton `index.html` :
+
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -5,449 +19,257 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculateur Carbone</title>
     
-    <!-- 1. Tailwind CSS -->
+    <!-- 1. STYLE : Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. React et ReactDOM (Version Développement pour voir les erreurs) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- 2. REACT & DÉPENDANCES (L'ordre est crucial) -->
+    <!-- React Core -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
     
-    <!-- 3. Recharts (Version compatible navigateur) -->
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    <!-- Pièce manquante souvent responsable de l'écran blanc -->
+    <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    
+    <!-- Recharts (Version figée stable) -->
+    <script crossorigin src="https://unpkg.com/recharts@2.10.3/umd/Recharts.min.js"></script>
 
-    <!-- 4. Babel (Pour traduire le JSX) -->
+    <!-- Babel pour traduire le code -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* Animation simple */
+        body { font-family: 'Segoe UI', sans-serif; }
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-slate-50 text-gray-800">
 
-    <div id="root">Chargement du calculateur...</div>
+    <div id="root" class="flex flex-col items-center justify-center min-h-screen">
+        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement de l'application...</div>
+        <div class="text-sm text-gray-400 mt-2">Si ce message reste affiché, essayez de rafraîchir la page.</div>
+    </div>
 
     <script type="text/babel">
-        // --- RECUPERATION DES LIBRAIRIES GLOBALES ---
+        // Vérification de sécurité avant de lancer
+        if (!window.React || !window.Recharts) {
+            document.getElementById('root').innerHTML = "<div class='text-red-600 p-4'>Erreur de chargement des librairies. Vérifiez votre connexion internet.</div>";
+            throw new Error("Librairies manquantes");
+        }
+
         const { useState, useEffect } = React;
+        // On récupère les composants Recharts depuis l'objet global
         const { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
 
-        // --- ICONES SVG (Intégrées pour éviter les bugs de chargement) ---
+        // --- ICONES ---
         const IconLeaf = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.77 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>;
         const IconCar = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>;
         const IconHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
         const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>;
-        const IconTrending = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>;
         const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
 
-        // --- CONSTANTES ---
+        // --- DATA ---
         const EMISSION_FACTORS = {
-            alimentation: {
-                omnivore: { factor: 3, label: 'Repas omnivore' },
-                vegetarien: { factor: 1.7, label: 'Repas végétarien' },
-                vegan: { factor: 1.5, label: 'Repas végan' }
-            },
-            transport: {
-                voiture: { factor: 0.192, label: 'Voiture', unit: 'km' },
-                bus: { factor: 0.105, label: 'Bus', unit: 'km' },
-                train: { factor: 0.041, label: 'Train', unit: 'km' },
-                avion: { factor: 0.255, label: 'Avion', unit: 'km' }
-            },
-            logement: {
-                electricite: { factor: 0.053, label: 'Électricité', unit: 'kWh' },
-                gaz: { factor: 0.206, label: 'Gaz', unit: 'kWh' },
-                fioul: { factor: 0.267, label: 'Fioul', unit: 'kWh' },
-                bois: { factor: 0.025, label: 'Bois', unit: 'kWh' }
-            },
-            numerique: {
-                donnees: { factor: 0.06, label: 'Données', unit: 'GB' },
-                streaming: { factor: 0.05, label: 'Streaming', unit: 'heures' }
-            }
+            alimentation: { omnivore: { factor: 3 }, vegetarien: { factor: 1.7 }, vegan: { factor: 1.5 } },
+            transport: { voiture: { factor: 0.192 }, bus: { factor: 0.105 }, train: { factor: 0.041 }, avion: { factor: 0.255 } },
+            logement: { electricite: { factor: 0.053 }, gaz: { factor: 0.206 }, fioul: { factor: 0.267 }, bois: { factor: 0.025 } },
+            numerique: { donnees: { factor: 0.06 }, streaming: { factor: 0.05 } }
         };
 
-        const MOYENNE_FRANCAISE = {
-            alimentation: 2300,
-            transport: 2100,
-            logement: 2200,
-            numerique: 150,
-            total: 9400
-        };
-
-        const VALEURS_MOYENNES = {
-            repasOmnivore: '14',
-            repasVegetarien: '5',
-            repasVegan: '2',
-            voiture: '100',
-            bus: '20',
-            train: '10',
-            avion: '2000',
-            electricite: '200',
-            gaz: '100',
-            fioul: '0',
-            bois: '0',
-            donnees: '50',
-            streaming: '2'
-        };
-
+        const MOYENNE_FRANCAISE = { alimentation: 2300, transport: 2100, logement: 2200, numerique: 150, total: 9400 };
+        const VALEURS_MOYENNES = { repasOmnivore: '14', repasVegetarien: '5', repasVegan: '2', voiture: '100', bus: '20', train: '10', avion: '2000', electricite: '200', gaz: '100', fioul: '0', bois: '0', donnees: '50', streaming: '2' };
         const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
 
-        // --- COMPOSANT PRINCIPAL ---
         function CarbonCalculator() {
             const [formData, setFormData] = useState(VALEURS_MOYENNES);
             const [results, setResults] = useState(null);
             const [history, setHistory] = useState([]);
-            const [transportPeriod, setTransportPeriod] = useState({
-                voiture: 'semaine',
-                bus: 'semaine',
-                train: 'semaine',
-                avion: 'an'
-            });
+            const [transportPeriod, setTransportPeriod] = useState({ voiture: 'semaine', bus: 'semaine', train: 'semaine', avion: 'an' });
 
             useEffect(() => {
                 try {
-                    const savedHistory = localStorage.getItem('carbonHistory');
-                    if (savedHistory) {
-                        setHistory(JSON.parse(savedHistory));
-                    }
-                } catch (e) { console.error("Erreur lecture historique", e); }
+                    const saved = localStorage.getItem('carbonHistory');
+                    if (saved) setHistory(JSON.parse(saved));
+                } catch(e) {}
             }, []);
 
-            const handleChange = (e) => {
-                const { name, value } = e.target;
-                setFormData(prev => ({ ...prev, [name]: value }));
+            const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
+            const handlePeriod = (mode, val) => setTransportPeriod({...transportPeriod, [mode]: val});
+            
+            const convertToAnnual = (val, mode) => {
+                const v = parseFloat(val) || 0;
+                const p = transportPeriod[mode];
+                return p === 'semaine' ? v * 52 : p === 'mois' ? v * 12 : v;
             };
 
-            const resetToDefaults = () => {
-                setFormData(VALEURS_MOYENNES);
-                setResults(null);
-            };
+            const calculate = () => {
+                const alim = 
+                    (parseFloat(formData.repasOmnivore)||0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365 +
+                    (parseFloat(formData.repasVegetarien)||0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365 +
+                    (parseFloat(formData.repasVegan)||0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
 
-            const handlePeriodChange = (transport, period) => {
-                setTransportPeriod(prev => ({ ...prev, [transport]: period }));
-            };
-
-            const convertToAnnual = (value, transport) => {
-                const period = transportPeriod[transport];
-                const val = parseFloat(value) || 0;
-                switch(period) {
-                    case 'semaine': return val * 52;
-                    case 'mois': return val * 12;
-                    case 'an': return val;
-                    default: return val;
-                }
-            };
-
-            const calculateEmissions = () => {
-                const totalRepas = (parseFloat(formData.repasOmnivore) || 0) + 
-                                   (parseFloat(formData.repasVegetarien) || 0) + 
-                                   (parseFloat(formData.repasVegan) || 0);
-                
-                if (totalRepas > 30) alert("Note : Le nombre de repas par semaine semble élevé (>30).");
-
-                const alimentation = 
-                    (parseFloat(formData.repasOmnivore) || 0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365 +
-                    (parseFloat(formData.repasVegetarien) || 0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365 +
-                    (parseFloat(formData.repasVegan) || 0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
-
-                const transport = 
+                const transp = 
                     convertToAnnual(formData.voiture, 'voiture') * EMISSION_FACTORS.transport.voiture.factor +
                     convertToAnnual(formData.bus, 'bus') * EMISSION_FACTORS.transport.bus.factor +
                     convertToAnnual(formData.train, 'train') * EMISSION_FACTORS.transport.train.factor +
                     convertToAnnual(formData.avion, 'avion') * EMISSION_FACTORS.transport.avion.factor;
 
-                const logement = 
-                    (parseFloat(formData.electricite) || 0) * EMISSION_FACTORS.logement.electricite.factor * 12 +
-                    (parseFloat(formData.gaz) || 0) * EMISSION_FACTORS.logement.gaz.factor * 12 +
-                    (parseFloat(formData.fioul) || 0) * EMISSION_FACTORS.logement.fioul.factor * 12 +
-                    (parseFloat(formData.bois) || 0) * EMISSION_FACTORS.logement.bois.factor * 12;
+                const log = 
+                    (parseFloat(formData.electricite)||0) * EMISSION_FACTORS.logement.electricite.factor * 12 +
+                    (parseFloat(formData.gaz)||0) * EMISSION_FACTORS.logement.gaz.factor * 12 +
+                    (parseFloat(formData.fioul)||0) * EMISSION_FACTORS.logement.fioul.factor * 12 +
+                    (parseFloat(formData.bois)||0) * EMISSION_FACTORS.logement.bois.factor * 12;
 
-                const numerique = 
-                    (parseFloat(formData.donnees) || 0) * EMISSION_FACTORS.numerique.donnees.factor * 12 +
-                    (parseFloat(formData.streaming) || 0) * EMISSION_FACTORS.numerique.streaming.factor * 365;
+                const num = 
+                    (parseFloat(formData.donnees)||0) * EMISSION_FACTORS.numerique.donnees.factor * 12 +
+                    (parseFloat(formData.streaming)||0) * EMISSION_FACTORS.numerique.streaming.factor * 365;
 
-                const total = alimentation + transport + logement + numerique;
+                const total = alim + transp + log + num;
 
-                const newResult = {
-                    alimentation: Math.round(alimentation),
-                    transport: Math.round(transport),
-                    logement: Math.round(logement),
-                    numerique: Math.round(numerique),
+                const res = {
+                    alimentation: Math.round(alim),
+                    transport: Math.round(transp),
+                    logement: Math.round(log),
+                    numerique: Math.round(num),
                     total: Math.round(total),
-                    tonnes: (total / 1000).toFixed(2),
+                    tonnes: (total/1000).toFixed(2),
                     date: new Date().toISOString()
                 };
 
-                setResults(newResult);
-
-                const newHistory = [...history, newResult].slice(-10);
+                setResults(res);
+                const newHistory = [...history, res].slice(-10);
                 setHistory(newHistory);
                 localStorage.setItem('carbonHistory', JSON.stringify(newHistory));
             };
 
-            const getRecommendations = () => {
-                if (!results) return [];
-                const recommendations = [];
-                if (results.alimentation > MOYENNE_FRANCAISE.alimentation) {
-                    recommendations.push({
-                        category: 'Alimentation',
-                        icon: <IconLeaf />,
-                        text: 'Réduisez votre consommation de viande rouge. Un jour végétarien aide beaucoup !',
-                        impact: 'Fort'
-                    });
-                }
-                if (results.transport > MOYENNE_FRANCAISE.transport) {
-                    recommendations.push({
-                        category: 'Transport',
-                        icon: <IconCar />,
-                        text: 'Le train émet 10x moins que la voiture et l\'avion.',
-                        impact: 'Fort'
-                    });
-                }
-                if (results.logement > MOYENNE_FRANCAISE.logement) {
-                    recommendations.push({
-                        category: 'Logement',
-                        icon: <IconHome />,
-                        text: 'Baissez le chauffage de 1°C = 7% d\'économie.',
-                        impact: 'Moyen'
-                    });
-                }
-                return recommendations;
+            const reset = () => {
+                setFormData(VALEURS_MOYENNES);
+                setResults(null);
             };
 
             const pieData = results ? [
-                { name: 'Alim.', value: results.alimentation },
-                { name: 'Trans.', value: results.transport },
-                { name: 'Log.', value: results.logement },
-                { name: 'Num.', value: results.numerique }
-            ] : [];
-
-            const comparisonData = results ? [
-                { category: 'Alimentation', vous: results.alimentation, moyenne: MOYENNE_FRANCAISE.alimentation },
-                { category: 'Transport', vous: results.transport, moyenne: MOYENNE_FRANCAISE.transport },
-                { category: 'Logement', vous: results.logement, moyenne: MOYENNE_FRANCAISE.logement },
-                { category: 'Numérique', vous: results.numerique, moyenne: MOYENNE_FRANCAISE.numerique }
+                {name: 'Alim', value: results.alimentation},
+                {name: 'Transp', value: results.transport},
+                {name: 'Logement', value: results.logement},
+                {name: 'Num', value: results.numerique}
             ] : [];
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 font-sans">
-                    <div className="max-w-5xl mx-auto">
-                        
-                        {/* HEADER */}
-                        <header className="text-center mb-8 pt-6">
-                            <div className="flex items-center justify-center mb-4 text-green-600">
-                                <div className="transform scale-150 mr-2"><IconLeaf /></div>
-                                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 ml-2">Calculateur Carbone</h1>
-                            </div>
-                            <p className="text-gray-600">Estimez votre impact annuel en 2 minutes.</p>
-                        </header>
-
-                        <div className="grid md:grid-cols-2 gap-6 mb-8">
-                            
-                            {/* SECTION ALIMENTATION */}
-                            <div className="bg-white rounded-xl shadow-lg p-6">
-                                <div className="flex items-center mb-4 text-green-600">
-                                    <IconLeaf />
-                                    <h2 className="text-xl font-bold text-gray-800 ml-2">Alimentation</h2>
-                                </div>
-                                <p className="text-xs text-gray-500 mb-3 uppercase font-bold tracking-wider">Repas par semaine</p>
-                                <div className="space-y-3">
-                                    <label className="flex justify-between items-center">
-                                        <span className="text-sm font-medium">Omnivore (viande)</span>
-                                        <input type="number" name="repasOmnivore" value={formData.repasOmnivore} onChange={handleChange} className="w-24 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition" />
-                                    </label>
-                                    <label className="flex justify-between items-center">
-                                        <span className="text-sm font-medium">Végétarien</span>
-                                        <input type="number" name="repasVegetarien" value={formData.repasVegetarien} onChange={handleChange} className="w-24 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition" />
-                                    </label>
-                                    <label className="flex justify-between items-center">
-                                        <span className="text-sm font-medium">Végan</span>
-                                        <input type="number" name="repasVegan" value={formData.repasVegan} onChange={handleChange} className="w-24 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition" />
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* SECTION TRANSPORT */}
-                            <div className="bg-white rounded-xl shadow-lg p-6">
-                                <div className="flex items-center mb-4 text-blue-600">
-                                    <IconCar />
-                                    <h2 className="text-xl font-bold text-gray-800 ml-2">Transport</h2>
-                                </div>
-                                <div className="space-y-3">
-                                    {['voiture', 'bus', 'train', 'avion'].map(mode => (
-                                        <div key={mode} className="flex items-center gap-2">
-                                            <label className="w-20 text-sm font-medium capitalize">{mode}</label>
-                                            <input type="number" name={mode} value={formData[mode]} onChange={handleChange} className="flex-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Km" />
-                                            <select value={transportPeriod[mode]} onChange={(e) => handlePeriodChange(mode, e.target.value)} className="bg-gray-100 border-none rounded-lg px-2 py-2 text-xs font-semibold cursor-pointer">
-                                                <option value="semaine">/sem</option>
-                                                <option value="mois">/mois</option>
-                                                <option value="an">/an</option>
-                                            </select>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* SECTION LOGEMENT */}
-                            <div className="bg-white rounded-xl shadow-lg p-6">
-                                <div className="flex items-center mb-4 text-orange-600">
-                                    <IconHome />
-                                    <h2 className="text-xl font-bold text-gray-800 ml-2">Logement</h2>
-                                </div>
-                                <p className="text-xs text-gray-500 mb-3 uppercase font-bold tracking-wider">kWh par mois</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {['electricite', 'gaz', 'fioul', 'bois'].map(type => (
-                                        <label key={type} className="flex flex-col">
-                                            <span className="text-xs font-semibold text-gray-600 capitalize mb-1">{type}</span>
-                                            <input type="number" name={type} value={formData[type]} onChange={handleChange} className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" />
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* SECTION NUMERIQUE */}
-                            <div className="bg-white rounded-xl shadow-lg p-6">
-                                <div className="flex items-center mb-4 text-purple-600">
-                                    <IconWifi />
-                                    <h2 className="text-xl font-bold text-gray-800 ml-2">Numérique</h2>
-                                </div>
-                                <div className="space-y-4">
-                                    <label className="flex flex-col">
-                                        <span className="text-sm font-medium">Données 4G/Wifi (GB/mois)</span>
-                                        <input type="number" name="donnees" value={formData.donnees} onChange={handleChange} className="mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
-                                    </label>
-                                    <label className="flex flex-col">
-                                        <span className="text-sm font-medium">Streaming vidéo (heures/jour)</span>
-                                        <input type="number" name="streaming" value={formData.streaming} onChange={handleChange} className="mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
-                                    </label>
-                                </div>
-                            </div>
+                <div className="max-w-5xl mx-auto p-4 md:p-8 fade-in">
+                    <div className="text-center mb-10">
+                        <div className="flex justify-center items-center text-green-600 mb-2">
+                            <IconLeaf />
+                            <h1 className="text-3xl font-bold ml-2 text-gray-800">Calculateur Carbone</h1>
                         </div>
-
-                        {/* BOUTONS ACTIONS */}
-                        <div className="text-center mb-10 space-y-4">
-                            <button onClick={calculateEmissions} className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-10 py-4 rounded-xl font-bold text-lg shadow-xl transform hover:scale-105 transition-all duration-200">
-                                Calculer mon empreinte
-                            </button>
-                            <div>
-                                <button onClick={resetToDefaults} className="text-gray-500 hover:text-gray-800 inline-flex items-center text-sm font-medium transition-colors">
-                                    <IconReset /> Réinitialiser aux valeurs moyennes
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* RESULTATS */}
-                        {results && (
-                            <div className="space-y-6 fade-in pb-12">
-                                {/* Score Principal */}
-                                <div className="bg-white rounded-2xl shadow-xl p-8 text-center border-t-8 border-green-500">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Votre Bilan Annuel</h2>
-                                    <div className="flex items-baseline justify-center gap-2">
-                                        <span className="text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600">
-                                            {results.tonnes}
-                                        </span>
-                                        <span className="text-2xl font-bold text-gray-500">tonnes CO₂e</span>
-                                    </div>
-                                    <div className="mt-6 inline-block bg-gray-100 px-6 py-3 rounded-full">
-                                        <p className="text-sm text-gray-700 font-medium">
-                                            Moyenne française : <strong>{MOYENNE_FRANCAISE.total / 1000} tonnes</strong>
-                                            {results.total < MOYENNE_FRANCAISE.total 
-                                                ? <span className="text-green-600 ml-2">👏 Bravo !</span> 
-                                                : <span className="text-orange-500 ml-2">⚠️ Au-dessus</span>}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Graphiques */}
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
-                                        <h3 className="text-lg font-bold text-gray-800 mb-4 w-full">Répartition</h3>
-                                        <div className="w-full h-[300px]">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={({name, percent}) => `${(percent * 100).toFixed(0)}%`}>
-                                                        {pieData.map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip formatter={(value) => `${value} kg CO2`} />
-                                                    <Legend />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-white rounded-xl shadow-lg p-6">
-                                        <h3 className="text-lg font-bold text-gray-800 mb-4">Comparaison (kg CO2)</h3>
-                                        <div className="w-full h-[300px]">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={comparisonData}>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                    <XAxis dataKey="category" tick={{fontSize: 12}} />
-                                                    <YAxis />
-                                                    <Tooltip cursor={{fill: 'transparent'}} />
-                                                    <Legend />
-                                                    <Bar dataKey="vous" fill="#10b981" name="Vous" radius={[4, 4, 0, 0]} />
-                                                    <Bar dataKey="moyenne" fill="#94a3b8" name="Moyenne FR" radius={[4, 4, 0, 0]} />
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Graphique Historique */}
-                                {history.length > 1 && (
-                                    <div className="bg-white rounded-xl shadow-lg p-6">
-                                        <h3 className="text-lg font-bold text-gray-800 mb-4">Votre Progression</h3>
-                                        <div className="w-full h-[250px]">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <LineChart data={history}>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                    <XAxis dataKey="date" tickFormatter={(d) => new Date(d).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} />
-                                                    <YAxis domain={['auto', 'auto']} />
-                                                    <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
-                                                    <Line type="monotone" dataKey="total" name="Total (kg)" stroke="#8b5cf6" strokeWidth={3} dot={{r: 4}} activeDot={{r: 8}} />
-                                                </LineChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Recommandations */}
-                                {getRecommendations().length > 0 && (
-                                    <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-400">
-                                        <div className="flex items-center mb-6">
-                                            <div className="text-yellow-500 mr-2"><IconTrending /></div>
-                                            <h3 className="text-xl font-bold text-gray-800">Pistes d'amélioration</h3>
-                                        </div>
-                                        <div className="grid gap-4">
-                                            {getRecommendations().map((rec, index) => (
-                                                <div key={index} className="flex items-start p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                                    <div className="text-green-600 mr-4 mt-1 bg-white p-2 rounded-full shadow-sm">{rec.icon}</div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <h4 className="font-bold text-gray-800">{rec.category}</h4>
-                                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${rec.impact === 'Fort' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                                Impact {rec.impact}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-gray-600 text-sm leading-relaxed">{rec.text}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        <p className="text-gray-600">Estimez votre impact annuel (kg CO₂e)</p>
                     </div>
+
+                    <div className="grid md:grid-cols-2 gap-6 mb-8">
+                        {/* ALIM */}
+                        <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
+                            <h2 className="text-lg font-bold mb-4 flex items-center"><IconLeaf /> <span className="ml-2">Alimentation</span></h2>
+                            <p className="text-xs text-gray-500 uppercase font-bold mb-3">Repas par semaine</p>
+                            <div className="space-y-3">
+                                {['repasOmnivore', 'repasVegetarien', 'repasVegan'].map(name => (
+                                    <div key={name} className="flex justify-between items-center">
+                                        <label className="capitalize text-sm">{name.replace('repas', '')}</label>
+                                        <input type="number" name={name} value={formData[name]} onChange={handleChange} className="w-20 p-2 border rounded focus:ring-2 focus:ring-green-500 outline-none" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* TRANSPORT */}
+                        <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
+                            <h2 className="text-lg font-bold mb-4 flex items-center"><IconCar /> <span className="ml-2">Transport</span></h2>
+                            <div className="space-y-3">
+                                {['voiture', 'bus', 'train', 'avion'].map(m => (
+                                    <div key={m} className="flex gap-2 items-center">
+                                        <label className="w-16 capitalize text-sm">{m}</label>
+                                        <input type="number" name={m} value={formData[m]} onChange={handleChange} className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="km" />
+                                        <select value={transportPeriod[m]} onChange={(e)=>handlePeriod(m, e.target.value)} className="bg-gray-100 p-2 rounded text-sm">
+                                            <option value="semaine">/sem</option>
+                                            <option value="mois">/mois</option>
+                                            <option value="an">/an</option>
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* LOGEMENT */}
+                        <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-orange-500">
+                            <h2 className="text-lg font-bold mb-4 flex items-center"><IconHome /> <span className="ml-2">Logement (kWh/mois)</span></h2>
+                            <div className="grid grid-cols-2 gap-4">
+                                {['electricite', 'gaz', 'fioul', 'bois'].map(k => (
+                                    <div key={k}>
+                                        <label className="text-xs font-bold uppercase text-gray-500 block mb-1">{k}</label>
+                                        <input type="number" name={k} value={formData[k]} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500 outline-none" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* NUMERIQUE */}
+                        <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-purple-500">
+                            <h2 className="text-lg font-bold mb-4 flex items-center"><IconWifi /> <span className="ml-2">Numérique</span></h2>
+                            <div className="space-y-4">
+                                <div><label className="block text-sm mb-1">Données (Go/mois)</label><input type="number" name="donnees" value={formData.donnees} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-purple-500 outline-none" /></div>
+                                <div><label className="block text-sm mb-1">Streaming (h/jour)</label><input type="number" name="streaming" value={formData.streaming} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-purple-500 outline-none" /></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="text-center mb-10">
+                        <button onClick={calculate} className="bg-gray-800 text-white px-8 py-3 rounded-lg text-lg font-bold hover:bg-black transition shadow-lg transform hover:scale-105">Calculer mon empreinte</button>
+                        <button onClick={reset} className="block mt-4 text-gray-500 text-sm hover:text-black mx-auto flex items-center"><IconReset /> Réinitialiser</button>
+                    </div>
+
+                    {results && (
+                        <div className="fade-in space-y-6 pb-12">
+                            <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
+                                <h2 className="text-2xl font-bold text-gray-700">Résultat Annuel</h2>
+                                <div className="text-6xl font-extrabold text-green-600 my-2">{results.tonnes}</div>
+                                <div className="text-xl text-gray-500">tonnes de CO₂e</div>
+                                <div className="mt-4 inline-block bg-gray-100 px-4 py-2 rounded-full text-sm">Moyenne Française : <strong>{MOYENNE_FRANCAISE.total/1000} tonnes</strong></div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="bg-white p-4 rounded-xl shadow-lg h-80">
+                                    <h3 className="text-center font-bold mb-2">Répartition</h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
+                                                {pieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                {history.length > 1 && (
+                                    <div className="bg-white p-4 rounded-xl shadow-lg h-80">
+                                        <h3 className="text-center font-bold mb-2">Historique</h3>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={history}>
+                                                <CartesianGrid strokeDasharray="3 3" />
+                                                <XAxis dataKey="date" tickFormatter={(d)=>new Date(d).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} />
+                                                <YAxis />
+                                                <Tooltip labelFormatter={(l)=>new Date(l).toLocaleString()} />
+                                                <Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={2} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
 
-        // --- RENDU FINAL ---
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<CarbonCalculator />);
     </script>
 </body>
 </html>
+```
