@@ -8,19 +8,20 @@
     <!-- 1. STYLE : Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. REACT & DÉPENDANCES (L'ordre est crucial) -->
-    <!-- React Core -->
-    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- 2. DEPENDANCES : UTILISATION DE CLOUDFLARE (Plus fiable) -->
     
-    <!-- Pièce manquante souvent responsable de l'écran blanc -->
-    <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <!-- React & React DOM -->
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     
-    <!-- Recharts (Version figée stable) -->
-    <script crossorigin src="https://unpkg.com/recharts@2.10.3/umd/Recharts.min.js"></script>
+    <!-- Prop-types (Indispensable pour Recharts) -->
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+    
+    <!-- Recharts (Version stable sur cdnjs) -->
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.3/Recharts.min.js"></script>
 
-    <!-- Babel pour traduire le code -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
 
     <style>
         body { font-family: 'Segoe UI', sans-serif; }
@@ -32,18 +33,20 @@
 
     <div id="root" class="flex flex-col items-center justify-center min-h-screen">
         <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement de l'application...</div>
-        <div class="text-sm text-gray-400 mt-2">Si ce message reste affiché, essayez de rafraîchir la page.</div>
     </div>
 
     <script type="text/babel">
-        // Vérification de sécurité avant de lancer
+        // --- Vérification de sécurité ---
         if (!window.React || !window.Recharts) {
-            document.getElementById('root').innerHTML = "<div class='text-red-600 p-4'>Erreur de chargement des librairies. Vérifiez votre connexion internet.</div>";
+            document.getElementById('root').innerHTML = `
+                <div class='text-red-600 p-8 text-center bg-white rounded shadow'>
+                    <h2 class='text-xl font-bold mb-2'>Erreur de chargement</h2>
+                    <p>Les bibliothèques n'ont pas pu charger. Vérifiez que vous n'avez pas de bloqueur de publicité actif.</p>
+                </div>`;
             throw new Error("Librairies manquantes");
         }
 
         const { useState, useEffect } = React;
-        // On récupère les composants Recharts depuis l'objet global
         const { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
 
         // --- ICONES ---
@@ -53,7 +56,7 @@
         const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>;
         const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
 
-        // --- DATA ---
+        // --- DONNEES ---
         const EMISSION_FACTORS = {
             alimentation: { omnivore: { factor: 3 }, vegetarien: { factor: 1.7 }, vegan: { factor: 1.5 } },
             transport: { voiture: { factor: 0.192 }, bus: { factor: 0.105 }, train: { factor: 0.041 }, avion: { factor: 0.255 } },
