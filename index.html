@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculateur Carbone - Version Finale</title>
+    <title>Calculateur Carbone - Version Complète</title>
     
     <!-- 1. STYLE : Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,14 +19,13 @@
         body { font-family: 'Segoe UI', sans-serif; }
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Transition douce pour les onglets */
         .tab-transition { transition: all 0.2s ease-in-out; }
     </style>
 </head>
 <body class="bg-slate-50 text-gray-800">
 
     <div id="root" class="flex flex-col items-center justify-center min-h-screen">
-        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement de l'application...</div>
+        <div class="text-2xl font-semibold text-gray-600 animate-pulse">Chargement...</div>
     </div>
 
     <script type="text/babel">
@@ -41,6 +40,8 @@
         const IconHome = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
         const IconWifi = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>;
         const IconReset = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>;
+        const IconInfo = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>;
+        const IconChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 ml-2"><path d="m6 9 6 6 6-6"/></svg>;
 
         // --- CONSTANTES ---
         const EMISSION_FACTORS = {
@@ -52,8 +53,6 @@
 
         const MOYENNE_FRANCAISE = { total: 9400 };
         const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
-
-        // Valeurs par défaut
         const VALEURS_MOYENNES = { 
             repasOmnivore: '14', repasVegetarien: '5', repasVegan: '2', 
             voiture: '100', bus: '20', train: '10', avion: '0', 
@@ -65,10 +64,8 @@
             const [formData, setFormData] = useState(VALEURS_MOYENNES);
             const [results, setResults] = useState(null);
             const [history, setHistory] = useState([]);
-            
-            // NOUVEAU : État global pour la vue transport
-            // 'semaine', 'mois', ou 'an'
             const [transportView, setTransportView] = useState('semaine');
+            const [showSources, setShowSources] = useState(false); // Pour afficher/masquer le tableau
 
             useEffect(() => {
                 try {
@@ -79,22 +76,21 @@
 
             const handleChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
             
-            // Fonction de conversion basée sur l'onglet sélectionné
             const convertTransportToAnnual = (val) => {
                 const v = parseFloat(val) || 0;
                 if (transportView === 'semaine') return v * 52;
                 if (transportView === 'mois') return v * 12;
-                return v; // cas 'an'
+                return v;
             };
 
             const calculate = () => {
-                // Alimentation
+                // Alim
                 const vOmni = (parseFloat(formData.repasOmnivore)||0) * EMISSION_FACTORS.alimentation.omnivore.factor * 365;
                 const vVege = (parseFloat(formData.repasVegetarien)||0) * EMISSION_FACTORS.alimentation.vegetarien.factor * 365;
                 const vVegan = (parseFloat(formData.repasVegan)||0) * EMISSION_FACTORS.alimentation.vegan.factor * 365;
                 const totalAlim = vOmni + vVege + vVegan;
 
-                // Transport (Utilise la nouvelle fonction globale)
+                // Transp
                 const vVoit = convertTransportToAnnual(formData.voiture) * EMISSION_FACTORS.transport.voiture.factor;
                 const vBus = convertTransportToAnnual(formData.bus) * EMISSION_FACTORS.transport.bus.factor;
                 const vTrain = convertTransportToAnnual(formData.train) * EMISSION_FACTORS.transport.train.factor;
@@ -147,7 +143,7 @@
 
             const reset = () => {
                 setFormData(VALEURS_MOYENNES);
-                setTransportView('semaine'); // Reset aussi la vue
+                setTransportView('semaine');
                 setResults(null);
             };
 
@@ -159,7 +155,7 @@
             ] : [];
 
             return (
-                <div className="max-w-6xl mx-auto p-4 md:p-8 fade-in">
+                <div className="max-w-6xl mx-auto p-4 md:p-8 fade-in pb-20">
                     <header className="text-center mb-10">
                         <div className="flex justify-center items-center text-green-600 mb-2">
                             <IconLeaf />
@@ -169,8 +165,7 @@
                     </header>
 
                     <div className="grid md:grid-cols-2 gap-6 mb-8">
-                        
-                        {/* 1. ALIMENTATION */}
+                        {/* ALIMENTATION */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-500">
                             <h2 className="text-lg font-bold mb-4 flex items-center"><IconLeaf /> <span className="ml-2">Alimentation</span></h2>
                             <p className="text-xs text-gray-500 uppercase font-bold mb-3">Repas par semaine</p>
@@ -184,46 +179,23 @@
                             </div>
                         </div>
 
-                        {/* 2. TRANSPORT (AMÉLIORÉ AVEC ONGLETS) */}
+                        {/* TRANSPORT AVEC ONGLETS */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                                 <h2 className="text-lg font-bold flex items-center"><IconCar /> <span className="ml-2">Transport</span></h2>
-                                
-                                {/* SELECTEUR DE VUE (TABS) */}
                                 <div className="bg-gray-100 p-1 rounded-lg flex text-xs font-semibold">
                                     {['semaine', 'mois', 'an'].map((view) => (
-                                        <button 
-                                            key={view}
-                                            onClick={() => setTransportView(view)}
-                                            className={`px-3 py-1.5 rounded-md capitalize tab-transition ${
-                                                transportView === view 
-                                                ? 'bg-white text-blue-600 shadow-sm' 
-                                                : 'text-gray-500 hover:text-gray-700'
-                                            }`}
-                                        >
-                                            {view}
-                                        </button>
+                                        <button key={view} onClick={() => setTransportView(view)} className={`px-3 py-1.5 rounded-md capitalize tab-transition ${transportView === view ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{view}</button>
                                     ))}
                                 </div>
                             </div>
-
-                            <p className="text-xs text-gray-500 uppercase font-bold mb-3">
-                                Distance par <span className="text-blue-600">{transportView}</span>
-                            </p>
-
+                            <p className="text-xs text-gray-500 uppercase font-bold mb-3">Distance par <span className="text-blue-600">{transportView}</span></p>
                             <div className="space-y-3">
                                 {['voiture', 'bus', 'train', 'avion'].map(m => (
                                     <div key={m} className="flex justify-between items-center">
                                         <label className="capitalize text-sm w-24">{m}</label>
                                         <div className="relative flex-1">
-                                            <input 
-                                                type="number" 
-                                                name={m} 
-                                                value={formData[m]} 
-                                                onChange={handleChange} 
-                                                className="w-full p-2 pr-10 border rounded focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
-                                                placeholder="0" 
-                                            />
+                                            <input type="number" name={m} value={formData[m]} onChange={handleChange} className="w-full p-2 pr-10 border rounded focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="0" />
                                             <span className="absolute right-3 top-2 text-xs text-gray-400">km</span>
                                         </div>
                                     </div>
@@ -231,7 +203,7 @@
                             </div>
                         </div>
 
-                        {/* 3. LOGEMENT */}
+                        {/* LOGEMENT */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-orange-500">
                             <h2 className="text-lg font-bold mb-4 flex items-center"><IconHome /> <span className="ml-2">Logement (kWh/mois)</span></h2>
                             <div className="grid grid-cols-2 gap-4">
@@ -244,7 +216,7 @@
                             </div>
                         </div>
 
-                        {/* 4. NUMERIQUE */}
+                        {/* NUMERIQUE */}
                         <div className="bg-white p-6 rounded-xl shadow-md border-t-4 border-purple-500">
                             <h2 className="text-lg font-bold mb-4 flex items-center"><IconWifi /> <span className="ml-2">Numérique</span></h2>
                             <div className="space-y-4">
@@ -261,7 +233,6 @@
 
                     {results && (
                         <div className="fade-in space-y-8 pb-12">
-                            {/* SCORE */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
                                 <h2 className="text-2xl font-bold text-gray-700">Résultat Annuel</h2>
                                 <div className="text-6xl font-extrabold text-green-600 my-2">{results.tonnes}</div>
@@ -269,7 +240,6 @@
                                 <div className="mt-4 inline-block bg-gray-100 px-4 py-2 rounded-full text-sm">Moyenne Française : <strong>{MOYENNE_FRANCAISE.total/1000} tonnes</strong></div>
                             </div>
 
-                            {/* GRAPHIQUES */}
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="bg-white p-4 rounded-xl shadow-lg h-80">
                                     <h3 className="text-center font-bold mb-2">Répartition</h3>
@@ -299,7 +269,6 @@
                                 )}
                             </div>
 
-                            {/* TABLEAU DE DÉTAIL */}
                             <div className="bg-white p-6 rounded-xl shadow-lg">
                                 <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Détail des émissions (kg CO₂e / an)</h3>
                                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -327,9 +296,66 @@
                                     ))}
                                 </div>
                             </div>
-
                         </div>
                     )}
+
+                    {/* SECTION METHODOLOGIE / SOURCES */}
+                    <div className="mt-12 text-center max-w-4xl mx-auto">
+                        <button 
+                            onClick={() => setShowSources(!showSources)}
+                            className="inline-flex items-center text-gray-500 hover:text-gray-800 transition font-medium text-sm border px-4 py-2 rounded-full hover:bg-gray-100"
+                        >
+                            <IconInfo /> 
+                            Comprendre le calcul (Facteurs d'émission)
+                            <div className={`transform transition-transform duration-200 ${showSources ? 'rotate-180' : ''}`}>
+                                <IconChevronDown />
+                            </div>
+                        </button>
+
+                        {showSources && (
+                            <div className="mt-6 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 text-left animate-fade-in">
+                                <div className="p-4 bg-gray-50 border-b border-gray-100">
+                                    <h3 className="font-bold text-gray-800">Méthodologie utilisée</h3>
+                                    <p className="text-sm text-gray-500">
+                                        Les facteurs d'émission ci-dessous sont utilisés pour convertir vos données (km, repas, kWh) en équivalent CO₂ (kg CO₂e).
+                                    </p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-gray-700">
+                                        <thead className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left">Catégorie</th>
+                                                <th className="px-6 py-3 text-left">Sous-catégorie</th>
+                                                <th className="px-6 py-3 text-left">Facteur (kg CO₂e)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {/* ALIMENTATION */}
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3 font-medium text-green-600">Alimentation</td><td>Repas omnivore</td><td>3.0</td></tr>
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Repas végétarien</td><td>1.7</td></tr>
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Repas végan</td><td>1.5</td></tr>
+                                            
+                                            {/* TRANSPORT */}
+                                            <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3 font-medium text-blue-600">Transport</td><td>Voiture (par km)</td><td>0.192</td></tr>
+                                            <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Bus (par km)</td><td>0.105</td></tr>
+                                            <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Train (par km)</td><td>0.041</td></tr>
+                                            <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Avion (par km)</td><td>0.255</td></tr>
+
+                                            {/* LOGEMENT */}
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3 font-medium text-orange-600">Logement</td><td>Électricité (par kWh)</td><td>0.053</td></tr>
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Gaz (par kWh)</td><td>0.206</td></tr>
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Fioul (par kWh)</td><td>0.267</td></tr>
+                                            <tr className="hover:bg-gray-50"><td className="px-6 py-3"></td><td>Bois (par kWh)</td><td>0.025</td></tr>
+
+                                            {/* NUMERIQUE */}
+                                            <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3 font-medium text-purple-600">Numérique</td><td>Données (par Go)</td><td>0.06</td></tr>
+                                            <tr className="hover:bg-gray-50 bg-slate-50/50"><td className="px-6 py-3"></td><td>Streaming (par heure)</td><td>0.05</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         }
